@@ -7,36 +7,18 @@ begin
   if exists (
     select 1
     from cron.job
-    where jobname = 'sync-compliance-rules-nightly'
+    where jobname = 'sync-compliance-knowledge-nightly'
   ) then
-    perform cron.unschedule('sync-compliance-rules-nightly');
+    perform cron.unschedule('sync-compliance-knowledge-nightly');
   end if;
 end
 $$;
 
--- Store the project URL and anon key once in Vault.
--- Replace ANON_KEY_HERE before running this script.
-select vault.create_secret(
-  'https://mqlwmewhkxgystwktcbc.supabase.co',
-  'sync_project_url',
-  'Compliance Tracker project URL for scheduled function invocation'
-)
-where not exists (
-  select 1 from vault.decrypted_secrets where name = 'sync_project_url'
-);
-
-select vault.create_secret(
-  'ANON_KEY_HERE',
-  'sync_anon_key',
-  'Compliance Tracker anon key for scheduled function invocation'
-)
-where not exists (
-  select 1 from vault.decrypted_secrets where name = 'sync_anon_key'
-);
-
+-- This schedule reuses vault secrets created by schedule-sync.sql:
+--   sync_project_url, sync_anon_key
 select cron.schedule(
-  'sync-compliance-rules-nightly',
-  '30 0 * * *',
+  'sync-compliance-knowledge-nightly',
+  '40 0 * * *',
   $$
   select
     net.http_post(
@@ -44,7 +26,7 @@ select cron.schedule(
         select decrypted_secret
         from vault.decrypted_secrets
         where name = 'sync_project_url'
-      ) || '/functions/v1/sync-compliance-rules',
+      ) || '/functions/v1/sync-compliance-knowledge',
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
         'Authorization', 'Bearer ' || (
@@ -65,4 +47,4 @@ select cron.schedule(
 
 select jobid, jobname, schedule
 from cron.job
-where jobname = 'sync-compliance-rules-nightly';
+where jobname = 'sync-compliance-knowledge-nightly';

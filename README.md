@@ -15,6 +15,11 @@ Recommended approach:
 3. Upsert data into Supabase tables.
 4. Trigger the function on a schedule from Supabase.
 
+The project now has two sync functions:
+
+- `sync-compliance-rules` for machine-readable task rules
+- `sync-compliance-knowledge` for markdown explainer content
+
 ## Recommended Architecture
 
 ### Source
@@ -89,12 +94,14 @@ Do not commit any of these values into the repo.
 
 ```bash
 supabase functions deploy sync-compliance-rules
+supabase functions deploy sync-compliance-knowledge
 ```
 
 ### 5. Invoke it manually
 
 ```bash
 supabase functions invoke sync-compliance-rules
+supabase functions invoke sync-compliance-knowledge
 ```
 
 You should get a JSON response with counters like:
@@ -120,11 +127,20 @@ To apply it:
 2. Replace `ANON_KEY_HERE` in `supabase/schedule-sync.sql` with your current anon key.
 3. Run the full script.
 
+If you see `extension "vault" is not available`, use the updated script in this repo that enables `supabase_vault` (not `vault`).
+
 This creates a nightly `pg_cron` job named `sync-compliance-rules-nightly` that calls:
 
 - `/functions/v1/sync-compliance-rules`
 
 at `30 0 * * *` UTC.
+
+For knowledge content, run:
+
+- `supabase/knowledge-schema.sql` (creates `knowledge_articles`)
+- `supabase/schedule-knowledge-sync.sql` (creates `sync-compliance-knowledge-nightly` at `40 0 * * *` UTC)
+
+The second scheduler reuses the same Vault secrets created by `supabase/schedule-sync.sql`.
 
 ### 6. Fetch rule files from GitHub
 

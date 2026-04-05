@@ -2,3 +2,7 @@ project_id = "compliancetracker"
 
 [functions.sync-compliance-rules]
 verify_jwt = false
+
+[functions.sync-compliance-knowledge]
+verify_jwt = false
+

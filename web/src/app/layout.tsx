@@ -18,9 +18,9 @@ export const metadata: Metadata = {
   title: "Compliance Tracker",
   description: "Track and manage SME compliance obligations in one place",
   icons: {
-    icon: "/icon.png",
-    shortcut: "/icon.png",
-    apple: "/icon.png",
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/favicon.ico",
   },
 };
 

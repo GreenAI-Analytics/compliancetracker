@@ -3,6 +3,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { seedUserTasks } from "@/lib/task-seeder";
 import { redirect } from "next/navigation";
 import { TaskList } from "@/components/task-list";
+import { LogoutButton } from "@/components/logout-button";
 import Link from "next/link";
 
 type OnboardingProfile = {
@@ -11,6 +12,48 @@ type OnboardingProfile = {
   nace: string;
   organization_id: string;
 };
+
+type CustomTask = {
+  id: string;
+  title: string;
+  due_date: string | null;
+  status: string;
+  isRecurring: boolean;
+  recurringInterval: string | null;
+  priority: string | null;
+};
+
+type CustomTaskRecord = {
+  id: string;
+  title: string;
+  due_date: string | null;
+  status: string;
+  details: string | null;
+};
+
+const INTERVAL_LABEL: Record<string, string> = {
+  weekly: "Weekly",
+  fortnightly: "Fortnightly",
+  monthly: "Monthly",
+  bimonthly: "Bi-monthly",
+  quarterly: "Quarterly",
+  semi_annually: "Semi-annually",
+  annually: "Annually",
+};
+
+function parseDetailsField<T>(details: string | null, key: string): T | null {
+  if (!details) return null;
+  try {
+    const parsed = JSON.parse(details) as Record<string, unknown>;
+    return (parsed[key] as T) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function parseIsRecurring(details: string | null): boolean {
+  return parseDetailsField<boolean>(details, "isRecurring") === true;
+}
 
 type TaskRow = {
   id: string;
@@ -25,8 +68,13 @@ type TaskRow = {
     frequency: string;
     law_ref: string | null;
     regulator: string | null;
+    rrule: string | null;
+    due_rule: string | null;
+    weekend_policy: string | null;
+    evidence_required: boolean;
     categories: {
       id: string;
+      category_id: string;
       name: string;
       display_order: number;
     } | null;
@@ -45,26 +93,36 @@ async function getDashboardData(userId: string) {
     .single();
 
   if (!profile) {
-    return { profile: null, stats: null, upcoming: [], priorityTasks: [], categories: [] };
+    return {
+      profile: null,
+      stats: null,
+      upcoming: [],
+      priorityTasks: [],
+      categories: [],
+      customTasks: [],
+    };
   }
 
-  // Get hidden task refs for this org
-  const hiddenRefs = new Set<string>();
+  // Get hidden task and category refs for this org
+  const hiddenTaskRefs = new Set<string>();
+  const hiddenCategoryRefs = new Set<string>();
   if (profile.organization_id) {
     const { data: hiddenRows } = await queryClient
       .from("hidden_items")
-      .select("item_ref")
-      .eq("organization_id", profile.organization_id)
-      .eq("item_type", "task");
-    (hiddenRows ?? []).forEach((h: { item_ref: string }) => hiddenRefs.add(h.item_ref));
+      .select("item_ref, item_type")
+      .eq("organization_id", profile.organization_id);
+    (hiddenRows ?? []).forEach((h: { item_ref: string; item_type: string }) => {
+      if (h.item_type === "task") hiddenTaskRefs.add(h.item_ref);
+      if (h.item_type === "category") hiddenCategoryRefs.add(h.item_ref);
+    });
   }
 
   let { data: instances } = await queryClient
     .from("user_task_instances")
     .select(
       `id, due_date, status, priority,
-       tasks(id, task_id, title_key, summary_key, frequency, law_ref, regulator,
-         categories(id, name, display_order)
+       tasks(id, task_id, title_key, summary_key, frequency, law_ref, regulator, rrule, due_rule, weekend_policy, evidence_required,
+         categories(id, category_id, name, display_order)
        )`
     )
     .eq("user_id", userId)
@@ -85,8 +143,8 @@ async function getDashboardData(userId: string) {
         .from("user_task_instances")
         .select(
           `id, due_date, status, priority,
-           tasks(id, task_id, title_key, summary_key, frequency, law_ref, regulator,
-             categories(id, name, display_order)
+           tasks(id, task_id, title_key, summary_key, frequency, law_ref, regulator, rrule, due_rule, weekend_policy, evidence_required,
+             categories(id, category_id, name, display_order)
            )`
         )
         .eq("user_id", userId)
@@ -97,7 +155,11 @@ async function getDashboardData(userId: string) {
   }
 
   const rows = (instances ?? []) as unknown as TaskRow[];
-  const visibleRows = rows.filter((r) => !hiddenRefs.has(r.tasks?.task_id ?? ""));
+  const visibleRows = rows.filter((r) => {
+    const taskRef = r.tasks?.task_id ?? "";
+    const categoryRef = r.tasks?.categories?.category_id ?? "";
+    return !hiddenTaskRefs.has(taskRef) && !hiddenCategoryRefs.has(categoryRef);
+  });
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -156,12 +218,40 @@ async function getDashboardData(userId: string) {
     })
     .slice(0, 4);
 
+  let customTasks: CustomTask[] = [];
+  if (profile.organization_id) {
+    const { data: customTaskRows } = await queryClient
+      .from("custom_tasks")
+      .select("id, title, due_date, status, details")
+      .eq("organization_id", profile.organization_id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    customTasks = ((customTaskRows ?? []) as CustomTaskRecord[])
+      .map((row) => ({
+        id: row.id,
+        title: row.title,
+        due_date: row.due_date,
+        status: row.status,
+        isRecurring: parseIsRecurring(row.details),
+        recurringInterval: parseDetailsField<string>(row.details, "recurringInterval"),
+        priority: parseDetailsField<string>(row.details, "priority"),
+      }))
+      .filter((task) => {
+        if (task.status === "completed") return false;
+        if (!task.due_date) return true;
+        const due = new Date(task.due_date);
+        return due >= today && due <= endOfYear;
+      });
+  }
+
   return {
     profile: profile as OnboardingProfile,
     stats: { total, completed, overdue, dueSoon, healthScore },
     upcoming,
     priorityTasks,
     categories,
+    customTasks,
   };
 }
 
@@ -179,6 +269,7 @@ export default async function DashboardPage() {
     upcoming,
     priorityTasks,
     categories,
+    customTasks,
   } = await getDashboardData(user.id);
 
   if (!profile) {
@@ -206,31 +297,36 @@ export default async function DashboardPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="mt-1 text-[#5e695f]">
+          <p className="mt-1 text-[#486255]">
             {profile.company_name} &middot; {profile.country} &middot; NACE {profile.nace}
           </p>
         </div>
-        {stats && stats.total > 0 && (
-          <div className="rounded-full bg-[#edf7f2] px-3 py-1 text-xs font-medium text-[#1a6b4a]">
-            {stats.completed} / {stats.total} complete
+        <div className="flex items-center gap-2">
+          {stats && stats.total > 0 && (
+            <div className="rounded-full bg-[#e4f3e7] px-3 py-1 text-xs font-medium text-[#1b5e20]">
+              {stats.completed} / {stats.total} complete
+            </div>
+          )}
+          <div className="min-w-[120px] rounded-lg border border-[#d7e5da] bg-white">
+            <LogoutButton />
           </div>
-        )}
+        </div>
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-2">
         {/* Health Score */}
-        <section className="rounded-xl border border-[#d6cfbc] bg-[#fffef9] p-5">
-          <h2 className="text-sm font-semibold text-[#4e5b53]">Compliance Health Score</h2>
+        <section className="rounded-xl border border-[#d7e5da] bg-white p-5">
+          <h2 className="text-sm font-semibold text-[#3e5c4b]">Compliance Health Score</h2>
           <p className="mt-2 text-4xl font-bold text-[var(--accent)]">
             {stats ? `${stats.healthScore}%` : "—"}
           </p>
-          <p className="mt-1 text-sm text-[#5f6b62]">
+          <p className="mt-1 text-sm text-[#4f675a]">
             {stats
               ? `${stats.completed} of ${stats.total} tasks completed`
               : "No tasks generated yet"}
           </p>
           {stats && stats.total > 0 && (
-            <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-[#e5e1d6]">
+            <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-[#e4efe6]">
               <div
                 className="h-full rounded-full bg-[var(--accent)]"
                 style={{ width: `${stats.healthScore}%` }}
@@ -240,12 +336,12 @@ export default async function DashboardPage() {
         </section>
 
         {/* Priority Tasks */}
-        <section className="rounded-xl border border-[#d6cfbc] bg-[#fffef9] p-5">
-          <h2 className="text-sm font-semibold text-[#4e5b53]">Priority Tasks</h2>
+        <section className="rounded-xl border border-[#d7e5da] bg-white p-5">
+          <h2 className="text-sm font-semibold text-[#3e5c4b]">Priority Tasks</h2>
           <p className="mt-2 text-4xl font-bold">
             {stats ? stats.overdue + stats.dueSoon : "—"}
           </p>
-          <p className="mt-1 text-sm text-[#5f6b62]">
+          <p className="mt-1 text-sm text-[#4f675a]">
             {stats
               ? `${stats.overdue} overdue · ${stats.dueSoon} due in 14 days`
               : "Loading…"}
@@ -269,13 +365,13 @@ export default async function DashboardPage() {
               ))}
             </ul>
           ) : (
-            <p className="mt-3 text-sm text-[#7b8880]">No overdue or due-soon tasks right now.</p>
+            <p className="mt-3 text-sm text-[#6b8073]">No overdue or due-soon tasks right now.</p>
           )}
         </section>
 
         {/* Upcoming Requirements */}
-        <section className="rounded-xl border border-[#d6cfbc] bg-[#fffef9] p-5">
-          <h2 className="text-sm font-semibold text-[#4e5b53]">Upcoming Requirements</h2>
+        <section className="rounded-xl border border-[#d7e5da] bg-white p-5">
+          <h2 className="text-sm font-semibold text-[#3e5c4b]">Upcoming Requirements</h2>
           <p className="mt-2 text-2xl font-bold">{quarterLabel} highlights</p>
           {upcoming.length > 0 ? (
             <ul className="mt-2 space-y-1">
@@ -291,13 +387,13 @@ export default async function DashboardPage() {
               ))}
             </ul>
           ) : (
-            <p className="mt-2 text-sm text-[#7b8880]">No upcoming deadlines in 6 months.</p>
+            <p className="mt-2 text-sm text-[#6b8073]">No upcoming deadlines in 6 months.</p>
           )}
         </section>
 
         {/* Compliance Calendar */}
-        <section className="rounded-xl border border-[#d6cfbc] bg-[#fffef9] p-5">
-          <h2 className="text-sm font-semibold text-[#4e5b53]">Compliance Calendar</h2>
+        <section className="rounded-xl border border-[#d7e5da] bg-white p-5">
+          <h2 className="text-sm font-semibold text-[#3e5c4b]">Compliance Calendar</h2>
           <p className="mt-2 text-2xl font-bold">{monthName}</p>
           {(() => {
             const thisMonth = upcoming.filter((i) => {
@@ -308,7 +404,7 @@ export default async function DashboardPage() {
               );
             });
             if (thisMonth.length === 0)
-              return <p className="mt-2 text-sm text-[#7b8880]">No deadlines this month.</p>;
+              return <p className="mt-2 text-sm text-[#6b8073]">No deadlines this month.</p>;
             return (
               <ul className="mt-2 space-y-1">
                 {thisMonth.slice(0, 4).map((inst) => (
@@ -338,17 +434,50 @@ export default async function DashboardPage() {
           </div>
           <Link
             href="/historical"
-            className="rounded-lg border border-[#d6cfbc] bg-[#fffef9] px-3 py-2 text-sm text-[#2d3b33] hover:bg-[#f6f2e8]"
+            className="rounded-lg border border-[#d7e5da] bg-white px-3 py-2 text-sm text-[#1e3326] hover:bg-[#edf5ef]"
           >
             View historical data
           </Link>
         </div>
-        {categories.length === 0 ? (
-          <div className="mt-4 rounded-xl border border-[#d7cfba] bg-[#fffef9] p-6 text-center text-sm text-[#4f5d54]">
+        {categories.length === 0 && customTasks.length === 0 ? (
+          <div className="mt-4 rounded-xl border border-[#d7e5da] bg-white p-6 text-center text-sm text-[#4f675a]">
             No upcoming tasks from today onward.
           </div>
         ) : (
           <div className="mt-4 space-y-6">
+            {customTasks.length > 0 && (
+              <section>
+                <h3 className="mb-3 text-lg font-semibold text-[#1a2e22]">Private Tasks</h3>
+                <div className="divide-y divide-[#e5eee7] rounded-xl border border-[#d7e5da] bg-white">
+                  {customTasks.map((task) => (
+                    <div key={task.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-[#173224]">{task.title}</p>
+                        <p className="mt-0.5 text-xs text-[#5f7668]">
+                          {task.due_date ? `Due ${formatDate(task.due_date)}` : "No due date"}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                        {task.priority === "high" && (
+                          <span className="rounded-full border border-[#f5b8b0] bg-[#fde8e4] px-2 py-0.5 text-[11px] font-medium text-[#9f3a2a]">High</span>
+                        )}
+                        {task.priority === "medium" && (
+                          <span className="rounded-full border border-[#f5d9a0] bg-[#fff4e0] px-2 py-0.5 text-[11px] font-medium text-[#8a6200]">Medium</span>
+                        )}
+                        {task.priority === "low" && (
+                          <span className="rounded-full border border-[#d7e5da] bg-[#f3f8f4] px-2 py-0.5 text-[11px] font-medium text-[#355143]">Low</span>
+                        )}
+                        <span className="rounded-full border border-[#d7e5da] bg-[#f3f8f4] px-2 py-0.5 text-[11px] font-medium text-[#355143]">
+                          {task.isRecurring
+                            ? (task.recurringInterval ? INTERVAL_LABEL[task.recurringInterval] ?? "Recurring" : "Recurring")
+                            : "One-time"}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
             {categories.map((cat) => (
               <section key={cat.id}>
                 <h3 className="mb-3 text-lg font-semibold text-[#1a2e22]">{cat.name}</h3>

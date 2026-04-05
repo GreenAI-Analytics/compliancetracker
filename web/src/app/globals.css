@@ -1,13 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f4f1e8;
-  --foreground: #1d2a24;
-  --surface: #fffdfa;
-  --muted: #5a665f;
-  --accent: #0d8f63;
-  --accent-strong: #06674b;
-  --line: #d9d2bf;
+  --background: #eef7f1;
+  --foreground: #102218;
+  --surface: #ffffff;
+  --muted: #486255;
+  --accent: #2e7d32;
+  --accent-strong: #1b5e20;
+  --line: #d7e5da;
 }
 
 @theme inline {
@@ -25,9 +25,9 @@ h3 {
 
 body {
   background:
-    radial-gradient(circle at 20% 15%, #ffffff 0%, transparent 45%),
-    radial-gradient(circle at 80% 10%, #d5f3de 0%, transparent 40%),
-    linear-gradient(180deg, #f9f6ee 0%, #efeadf 100%);
+    radial-gradient(circle at 18% 10%, #ffffff 0%, transparent 42%),
+    radial-gradient(circle at 85% 12%, #d9f0dd 0%, transparent 40%),
+    linear-gradient(180deg, #f7fcf8 0%, #e9f4ed 100%);
   color: var(--foreground);
   font-family: var(--font-body), sans-serif;
 }
@@ -35,11 +35,11 @@ body {
 .surface {
   background: var(--surface);
   border: 1px solid var(--line);
-  box-shadow: 0 10px 25px rgba(29, 42, 36, 0.08);
+  box-shadow: 0 1px 2px rgba(16, 34, 24, 0.08), 0 6px 20px rgba(16, 34, 24, 0.08);
 }
 
 .pill {
   border: 1px solid var(--line);
-  background: #fffdf6;
+  background: #f6fbf7;
   color: var(--muted);
 }

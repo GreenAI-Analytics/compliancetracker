@@ -31,13 +31,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.href}
                 href={item.href}
-                className="rounded-lg px-3 py-2 text-sm text-[#27322d] transition hover:bg-[#edf7f2]"
+                className="rounded-lg px-3 py-2 text-sm text-[#1e3326] transition hover:bg-[#e8f4ea]"
               >
                 {item.label}
               </Link>
             ))}
           </nav>
-          <div className="mt-auto pt-6 border-t border-[#e2ddd0]">
+          <div className="mt-auto border-t border-[#d7e5da] pt-6">
             <LogoutButton />
           </div>
         </aside>

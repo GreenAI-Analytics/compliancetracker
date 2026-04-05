@@ -60,49 +60,77 @@ export function TaskList({
 }) {
   const router = useRouter();
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   async function markComplete(instanceId: string) {
     setLoadingId(instanceId);
-    const supabase = getSupabaseClient();
-    if (!supabase) return;
-    await supabase
-      .from("user_task_instances")
-      .update({ status: "completed", completed_at: new Date().toISOString() })
-      .eq("id", instanceId)
-      .eq("user_id", instanceUserId);
-    setLoadingId(null);
-    router.refresh();
+    setActionError(null);
+    try {
+      const res = await fetch("/api/task-instances/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ instanceId }),
+      });
+
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? "Failed to mark task as complete.");
+      }
+
+      router.refresh();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Failed to mark task as complete.");
+    } finally {
+      setLoadingId(null);
+    }
   }
 
   async function hideTask(taskId: string, organizationId?: string) {
     setLoadingId(taskId);
-    const supabase = getSupabaseClient();
-    if (!supabase) return;
-    // Get org id from user profile
-    const { data: profile } = await supabase
-      .from("onboarding_profiles")
-      .select("organization_id")
-      .eq("user_id", instanceUserId)
-      .single();
-    if (profile?.organization_id) {
-      await supabase.from("hidden_items").upsert(
-        {
-          organization_id: profile.organization_id,
-          hidden_by: instanceUserId,
-          item_type: "task",
-          item_ref: taskId,
-        },
-        { onConflict: "organization_id,item_type,item_ref" }
-      );
+    setActionError(null);
+    try {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error("Supabase client is not configured in this environment.");
+      }
+      // Get org id from user profile
+      const { data: profile, error: profileError } = await supabase
+        .from("onboarding_profiles")
+        .select("organization_id")
+        .eq("user_id", instanceUserId)
+        .single();
+
+      if (profileError) throw profileError;
+
+      if (profile?.organization_id) {
+        const { error: upsertError } = await supabase.from("hidden_items").upsert(
+          {
+            organization_id: profile.organization_id,
+            hidden_by: instanceUserId,
+            item_type: "task",
+            item_ref: taskId,
+          },
+          { onConflict: "organization_id,item_type,item_ref" }
+        );
+        if (upsertError) throw upsertError;
+      }
+      router.refresh();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Failed to hide task.");
+    } finally {
+      setLoadingId(null);
     }
-    setLoadingId(null);
-    router.refresh();
   }
 
   if (tasks.length === 0) return null;
 
   return (
     <div className="divide-y divide-[#ece7da] rounded-xl border border-[#d6cfbc] bg-[#fffef9]">
+      {actionError && (
+        <div className="border-b border-[#f3d2c5] bg-[#fff2ec] px-4 py-2 text-xs text-[#9f4b2a]">
+          {actionError}
+        </div>
+      )}
       {tasks.map((row) => {
         const task = row.tasks;
         if (!task) return null;

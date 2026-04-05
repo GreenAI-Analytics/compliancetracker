@@ -3,6 +3,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { seedUserTasks } from "@/lib/task-seeder";
 import { redirect } from "next/navigation";
 import { TaskList } from "@/components/task-list";
+import Link from "next/link";
 
 type OnboardingProfile = {
   company_name: string;
@@ -43,7 +44,9 @@ async function getDashboardData(userId: string) {
     .eq("user_id", userId)
     .single();
 
-  if (!profile) return { profile: null, stats: null, upcoming: [], categories: [] };
+  if (!profile) {
+    return { profile: null, stats: null, upcoming: [], priorityTasks: [], categories: [] };
+  }
 
   // Get hidden task refs for this org
   const hiddenRefs = new Set<string>();
@@ -96,9 +99,18 @@ async function getDashboardData(userId: string) {
   const rows = (instances ?? []) as unknown as TaskRow[];
   const visibleRows = rows.filter((r) => !hiddenRefs.has(r.tasks?.task_id ?? ""));
 
-  // Group by category
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const endOfYear = new Date(today.getFullYear(), 11, 31, 23, 59, 59, 999);
+
+  const currentTasks = visibleRows.filter((row) => {
+    const due = new Date(row.due_date);
+    return row.status !== "completed" && due >= today && due <= endOfYear;
+  });
+
+  // Group current/future tasks by category for the Tasks section
   const categoryMap = new Map<string, { name: string; order: number; tasks: TaskRow[] }>();
-  for (const row of visibleRows) {
+  for (const row of currentTasks) {
     const cat = row.tasks?.categories;
     const catId = cat?.id ?? "uncategorised";
     const catName = cat?.name ?? "Uncategorised";
@@ -112,8 +124,6 @@ async function getDashboardData(userId: string) {
     .sort((a, b) => a[1].order - b[1].order)
     .map(([id, val]) => ({ id, ...val }));
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
   const in14Days = new Date(today);
   in14Days.setDate(today.getDate() + 14);
   const in6Months = new Date(today);
@@ -138,10 +148,19 @@ async function getDashboardData(userId: string) {
     })
     .slice(0, 8);
 
+  const priorityTasks = visibleRows
+    .filter((i) => {
+      if (i.status === "completed") return false;
+      const d = new Date(i.due_date);
+      return d < today || (d >= today && d <= in14Days);
+    })
+    .slice(0, 4);
+
   return {
     profile: profile as OnboardingProfile,
     stats: { total, completed, overdue, dueSoon, healthScore },
     upcoming,
+    priorityTasks,
     categories,
   };
 }
@@ -154,7 +173,13 @@ export default async function DashboardPage() {
 
   if (!user) redirect("/login");
 
-  const { profile, stats, upcoming, categories } = await getDashboardData(user.id);
+  const {
+    profile,
+    stats,
+    upcoming,
+    priorityTasks,
+    categories,
+  } = await getDashboardData(user.id);
 
   if (!profile) {
     return (
@@ -230,6 +255,22 @@ export default async function DashboardPage() {
               ⚠ {stats.overdue} task{stats.overdue > 1 ? "s" : ""} past due
             </p>
           )}
+          {priorityTasks.length > 0 ? (
+            <ul className="mt-3 space-y-1">
+              {priorityTasks.map((inst) => (
+                <li key={inst.id} className="flex items-center justify-between text-sm">
+                  <span className="truncate text-[#3b4a3f]">
+                    {formatTaskTitle(inst.tasks?.title_key ?? inst.tasks?.task_id ?? "Task")}
+                  </span>
+                  <span className="ml-2 shrink-0 text-xs text-[#7a8880]">
+                    {formatDate(inst.due_date)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3 text-sm text-[#7b8880]">No overdue or due-soon tasks right now.</p>
+          )}
         </section>
 
         {/* Upcoming Requirements */}
@@ -288,10 +329,23 @@ export default async function DashboardPage() {
 
       {/* Tasks */}
       <div className="mt-8">
-        <h2 className="text-2xl font-bold">Tasks</h2>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-2xl font-bold">Tasks</h2>
+            <p className="mt-1 text-sm text-[#5f6b62]">
+              Showing incomplete tasks due from today until year end.
+            </p>
+          </div>
+          <Link
+            href="/historical"
+            className="rounded-lg border border-[#d6cfbc] bg-[#fffef9] px-3 py-2 text-sm text-[#2d3b33] hover:bg-[#f6f2e8]"
+          >
+            View historical data
+          </Link>
+        </div>
         {categories.length === 0 ? (
           <div className="mt-4 rounded-xl border border-[#d7cfba] bg-[#fffef9] p-6 text-center text-sm text-[#4f5d54]">
-            No tasks found. Make sure your compliance rules are synced and your country/NACE profile is saved.
+            No upcoming tasks from today onward.
           </div>
         ) : (
           <div className="mt-4 space-y-6">

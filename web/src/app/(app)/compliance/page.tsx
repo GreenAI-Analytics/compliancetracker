@@ -1,4 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { seedUserTasks } from "@/lib/task-seeder";
 import { redirect } from "next/navigation";
 import { TaskList } from "@/components/task-list";
 
@@ -25,13 +27,15 @@ type TaskRow = {
 
 export default async function ComplianceHubPage() {
   const supabase = await createSupabaseServerClient();
+  const supabaseAdmin = getSupabaseAdminClient();
+  const queryClient = supabaseAdmin ?? supabase;
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
   // Get hidden task refs for this org
-  const { data: profile } = await supabase
+  const { data: profile } = await queryClient
     .from("onboarding_profiles")
     .select("company_name, country, nace, organization_id")
     .eq("user_id", user.id)
@@ -39,7 +43,7 @@ export default async function ComplianceHubPage() {
 
   const hiddenRefs = new Set<string>();
   if (profile?.organization_id) {
-    const { data: hiddenRows } = await supabase
+    const { data: hiddenRows } = await queryClient
       .from("hidden_items")
       .select("item_ref")
       .eq("organization_id", profile.organization_id)
@@ -48,7 +52,7 @@ export default async function ComplianceHubPage() {
   }
 
   // Get all task instances with full task + category info
-  const { data: instances } = await supabase
+  let { data: instances } = await queryClient
     .from("user_task_instances")
     .select(
       `id, due_date, status, priority,
@@ -58,6 +62,32 @@ export default async function ComplianceHubPage() {
     )
     .eq("user_id", user.id)
     .order("due_date", { ascending: true });
+
+  // First-load fallback: seed missing user_task_instances from country + NACE rules.
+  if ((instances?.length ?? 0) === 0 && profile?.organization_id) {
+    if (supabaseAdmin) {
+      await seedUserTasks(
+        supabaseAdmin,
+        user.id,
+        profile.organization_id,
+        profile.country,
+        profile.nace
+      );
+
+      const { data: seededInstances } = await queryClient
+        .from("user_task_instances")
+        .select(
+          `id, due_date, status, priority,
+           tasks(id, task_id, title_key, summary_key, frequency, law_ref, regulator,
+             categories(id, name, display_order)
+           )`
+        )
+        .eq("user_id", user.id)
+        .order("due_date", { ascending: true });
+
+      instances = seededInstances;
+    }
+  }
 
   const rows = (instances ?? []) as unknown as TaskRow[];
 

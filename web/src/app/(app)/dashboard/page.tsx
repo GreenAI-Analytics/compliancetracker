@@ -1,4 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { seedUserTasks } from "@/lib/task-seeder";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
@@ -24,8 +26,10 @@ type TaskInstance = {
 
 async function getDashboardData(userId: string) {
   const supabase = await createSupabaseServerClient();
+  const supabaseAdmin = getSupabaseAdminClient();
+  const queryClient = supabaseAdmin ?? supabase;
 
-  const { data: profile } = await supabase
+  const { data: profile } = await queryClient
     .from("onboarding_profiles")
     .select("company_name, country, nace, organization_id")
     .eq("user_id", userId)
@@ -33,11 +37,32 @@ async function getDashboardData(userId: string) {
 
   if (!profile) return { profile: null, stats: null, upcoming: [] };
 
-  const { data: instances } = await supabase
+  let { data: instances } = await queryClient
     .from("user_task_instances")
     .select("id, due_date, status, priority, tasks(id, task_id, title_key, frequency)")
     .eq("user_id", userId)
     .order("due_date", { ascending: true });
+
+  // First-load fallback: ensure task instances exist for the user's country + NACE profile.
+  if ((instances?.length ?? 0) === 0 && profile.organization_id) {
+    if (supabaseAdmin) {
+      await seedUserTasks(
+        supabaseAdmin,
+        userId,
+        profile.organization_id,
+        profile.country,
+        profile.nace
+      );
+
+      const { data: seededInstances } = await queryClient
+        .from("user_task_instances")
+        .select("id, due_date, status, priority, tasks(id, task_id, title_key, frequency)")
+        .eq("user_id", userId)
+        .order("due_date", { ascending: true });
+
+      instances = seededInstances;
+    }
+  }
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);

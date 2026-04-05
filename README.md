@@ -108,6 +108,24 @@ You should get a JSON response with counters like:
 - `parseFailures`
 - `apiFailures`
 
+### 5a. Schedule the function nightly
+
+The scheduler SQL is included at:
+
+- `supabase/schedule-sync.sql`
+
+To apply it:
+
+1. Open the Supabase SQL Editor.
+2. Replace `ANON_KEY_HERE` in `supabase/schedule-sync.sql` with your current anon key.
+3. Run the full script.
+
+This creates a nightly `pg_cron` job named `sync-compliance-rules-nightly` that calls:
+
+- `/functions/v1/sync-compliance-rules`
+
+at `30 0 * * *` UTC.
+
 ### 6. Fetch rule files from GitHub
 
 You have two practical options.

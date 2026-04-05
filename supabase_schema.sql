@@ -78,6 +78,12 @@ CREATE TABLE organizations (
     name VARCHAR(255) NOT NULL,
     country VARCHAR(2),                   -- Primary country
     nace VARCHAR(10),                     -- Business activity code
+    billing_contact_name VARCHAR(255),
+    billing_email VARCHAR(255),
+    billing_address TEXT,
+    vat_number VARCHAR(100),
+    purchase_order_ref VARCHAR(100),
+    payment_method VARCHAR(50),           -- card|bank_transfer|invoice|other
     created_by UUID,                      -- Foreign key to users table (set after users table)
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()

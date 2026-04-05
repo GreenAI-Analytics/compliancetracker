@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { PaymentInformationForm } from "@/components/payment-information-form";
 import { redirect } from "next/navigation";
 
 const PRICE_KEY = "billing_monthly_price_eur";
@@ -43,7 +44,7 @@ export default async function BillingPage() {
     profile?.organization_id
       ? (adminSupabase ?? supabase)
           .from("organizations")
-          .select("name, is_sponsored, sponsored_reason")
+        .select("name, is_sponsored, sponsored_reason, billing_contact_name, billing_email, billing_address, vat_number, purchase_order_ref, payment_method")
           .eq("id", profile.organization_id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
@@ -55,7 +56,17 @@ export default async function BillingPage() {
     settingMap.get(PRICE_KEY) ?? settingMap.get(LEGACY_PRICE_KEY) ?? DEFAULT_PRICE_EUR;
 
   const org = orgRes.data as
-    | { name?: string; is_sponsored?: boolean; sponsored_reason?: string | null }
+    | {
+        name?: string;
+        is_sponsored?: boolean;
+        sponsored_reason?: string | null;
+        billing_contact_name?: string | null;
+        billing_email?: string | null;
+        billing_address?: string | null;
+        vat_number?: string | null;
+        purchase_order_ref?: string | null;
+        payment_method?: "card" | "bank_transfer" | "invoice" | "other" | null;
+      }
     | null;
   const isSponsored = Boolean(org?.is_sponsored);
 
@@ -128,9 +139,23 @@ export default async function BillingPage() {
         </div>
       </div>
 
-      <div className="mt-5 rounded-xl border border-[#d6cfb9] bg-[#fffef9] p-4 text-sm text-[#57645c]">
-        Next step: Stripe checkout and customer portal integration.
-      </div>
+      <section className="mt-6 rounded-xl border border-[#d7e5da] bg-white p-5">
+        <h2 className="text-lg font-semibold text-[#1a2e22]">Payment Information</h2>
+        <p className="mt-1 text-sm text-[#5f7668]">
+          Manage the billing contact details used for invoices and payment follow-up.
+        </p>
+        <PaymentInformationForm
+          initialValue={{
+            billingContactName: org?.billing_contact_name ?? "",
+            billingEmail: org?.billing_email ?? user.email ?? "",
+            billingAddress: org?.billing_address ?? "",
+            vatNumber: org?.vat_number ?? "",
+            purchaseOrderRef: org?.purchase_order_ref ?? "",
+            paymentMethod: org?.payment_method ?? "card",
+          }}
+          disabled={!profile?.organization_id}
+        />
+      </section>
     </div>
   );
 }

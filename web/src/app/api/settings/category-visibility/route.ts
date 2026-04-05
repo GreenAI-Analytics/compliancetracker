@@ -34,12 +34,37 @@ export async function POST(request: NextRequest) {
 
   const { data: profile, error: profileError } = await admin
     .from("onboarding_profiles")
-    .select("organization_id")
+    .select("organization_id, country, nace")
     .eq("user_id", user.id)
     .single();
 
   if (profileError || !profile?.organization_id) {
     return NextResponse.json({ error: "Organization profile not found" }, { status: 404 });
+  }
+
+  // Only allow hiding categories that exist for the organization's active rule.
+  if (!enabled) {
+    const { data: rule, error: ruleError } = await admin
+      .from("rules")
+      .select("id")
+      .eq("country", profile.country)
+      .eq("nace", profile.nace)
+      .maybeSingle();
+
+    if (ruleError || !rule?.id) {
+      return NextResponse.json({ error: "Rule not found for organization profile" }, { status: 404 });
+    }
+
+    const { data: category, error: categoryError } = await admin
+      .from("categories")
+      .select("category_id")
+      .eq("rule_id", rule.id)
+      .eq("category_id", categoryRef)
+      .maybeSingle();
+
+    if (categoryError || !category?.category_id) {
+      return NextResponse.json({ error: "Invalid category for organization profile" }, { status: 400 });
+    }
   }
 
   if (enabled) {

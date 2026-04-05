@@ -41,6 +41,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
   }
 
+  const { data: profile, error: profileError } = await admin
+    .from("onboarding_profiles")
+    .select("user_id")
+    .eq("user_id", user.id)
+    .single();
+
+  if (profileError || !profile?.user_id) {
+    return NextResponse.json({ error: "Organization profile not found" }, { status: 404 });
+  }
+
   const { error } = await admin
     .from("onboarding_profiles")
     .update({

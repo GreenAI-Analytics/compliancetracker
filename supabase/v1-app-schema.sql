@@ -75,6 +75,24 @@ alter table if exists organizations
 alter table if exists organizations
   add column if not exists sponsored_reason text;
 
+alter table if exists organizations
+  add column if not exists billing_contact_name text;
+
+alter table if exists organizations
+  add column if not exists billing_email text;
+
+alter table if exists organizations
+  add column if not exists billing_address text;
+
+alter table if exists organizations
+  add column if not exists vat_number text;
+
+alter table if exists organizations
+  add column if not exists purchase_order_ref text;
+
+alter table if exists organizations
+  add column if not exists payment_method text;
+
 create index if not exists idx_onboarding_profiles_org on onboarding_profiles(organization_id);
 create index if not exists idx_custom_categories_org on custom_categories(organization_id);
 create index if not exists idx_custom_tasks_org on custom_tasks(organization_id);

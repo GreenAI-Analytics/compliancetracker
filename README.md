@@ -1,5 +1,82 @@
 # Compliance Tracker
 
+## Sprint Kickoff (April 2026)
+
+This section is the handoff point for the next sprint.
+
+### Current Product Status
+
+- Billing settings now include organization-level payment information capture.
+- Settings APIs were hardened for safer organization-scoped updates.
+- Social login UI now supports Google and Microsoft OAuth and routes social users to signup completion.
+- Supabase project is linked and schema updates for billing fields have been applied.
+
+### Completed In Last Sprint
+
+- Added payment information form and persistence flow:
+  - `web/src/app/(app)/billing/page.tsx`
+  - `web/src/components/payment-information-form.tsx`
+  - `web/src/app/api/settings/payment-information/route.ts`
+- Added organization payment columns to schema:
+  - `supabase/migrations/20260405161000_add_organization_payment_fields.sql`
+  - `supabase/v1-app-schema.sql`
+  - `supabase_schema.sql`
+- Hardened settings APIs:
+  - `web/src/app/api/settings/category-visibility/route.ts`
+  - `web/src/app/api/settings/task-reminders/route.ts`
+- Updated social login providers from GitHub to Microsoft in login UI:
+  - `web/src/components/login-form.tsx`
+
+### Immediate Sprint Priorities
+
+1. Finalize Supabase OAuth provider setup.
+2. Validate full social signup flow end-to-end (Google and Microsoft).
+3. Add duplicate-protection in complete-signup flow for existing social users.
+4. Add automated tests for billing payment-information API and social signup path.
+5. Prepare i18n implementation plan (deferred to later sprint execution).
+
+### OAuth Setup Checklist (Required)
+
+Configure the following in Supabase Auth:
+
+- Enable providers:
+  - Google
+  - Azure (Microsoft)
+- Site URL:
+  - `http://localhost:3000` (local)
+  - production URL (when available)
+- Additional Redirect URLs:
+  - `http://localhost:3000/login?mode=signup&fresh=1&oauth=1`
+  - production equivalent with same query params
+
+Provider callback URL to register in Google and Microsoft apps:
+
+- `https://mqlwmewhkxgystwktcbc.supabase.co/auth/v1/callback`
+
+### Known Follow-Up Gaps
+
+- `complete-signup` currently assumes a new org/user profile creation path; add idempotent behavior for already-provisioned OAuth users.
+- Add UX guard: if OAuth user already completed onboarding, redirect directly to dashboard.
+- Add integration tests for signup provisioning and billing field persistence.
+
+### Local Runbook
+
+From repo root:
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+Dev server default URL:
+
+- `http://localhost:3000`
+
+### Suggested First Task For Next Sprint
+
+Implement idempotent social signup completion in `web/src/app/api/auth/complete-signup/route.ts` so repeated OAuth callbacks do not create duplicate organization/user/profile records.
+
 This repo will use Supabase to pull rule data from the compliance-rules repository instead of GitHub Actions.
 
 ## Goal

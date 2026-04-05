@@ -24,6 +24,7 @@ export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [mode, setMode] = useState<"login" | "signup">("login");
+  const [oauthSignupMode, setOauthSignupMode] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [companyName, setCompanyName] = useState("");
@@ -44,6 +45,33 @@ export function LoginForm() {
     if (requestedMode === "signup" || requestedMode === "login") {
       setMode(requestedMode);
     }
+  }, [searchParams]);
+
+  useEffect(() => {
+    async function detectOAuthSignupContext() {
+      if (searchParams.get("oauth") !== "1") {
+        setOauthSignupMode(false);
+        return;
+      }
+
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        setMessage("Supabase public env values are not configured in web/.env.local");
+        return;
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user?.email) {
+        setEmail(user.email);
+        setOauthSignupMode(true);
+        setMode("signup");
+      }
+    }
+
+    detectOAuthSignupContext();
   }, [searchParams]);
 
   useEffect(() => {
@@ -85,6 +113,31 @@ export function LoginForm() {
 
   const filteredNaceOptions = naceOptions.filter((item) => item.section === selectedSection);
 
+  async function onSocialLogin(provider: "google" | "azure") {
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error("Supabase public env values are not configured in web/.env.local");
+      }
+
+      const origin = window.location.origin;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${origin}/login?mode=signup&fresh=1&oauth=1`,
+        },
+      });
+
+      if (error) throw error;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Social login failed");
+      setLoading(false);
+    }
+  }
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setLoading(true);
@@ -120,6 +173,53 @@ export function LoginForm() {
         router.replace("/dashboard");
         router.refresh();
       } else {
+        if (oauthSignupMode) {
+          const {
+            data: { user: oauthUser },
+            error: oauthUserError,
+          } = await supabase.auth.getUser();
+
+          if (oauthUserError || !oauthUser?.id || !oauthUser.email) {
+            throw new Error("Social session not found. Please sign in again.");
+          }
+
+          const normalizedCompanyName = companyName.trim();
+          const normalizedCompanyAddress = companyAddress.trim();
+
+          if (!normalizedCompanyName) throw new Error("Please enter a company name");
+          if (!country) throw new Error("Please select a country");
+          if (!selectedSection) throw new Error("Please select a NACE section");
+          if (!incorporationDate) throw new Error("Please select an incorporation date");
+
+          const normalizedNaceCode = naceCode.trim();
+          if (!/^[0-9]{2}$/.test(normalizedNaceCode)) {
+            throw new Error("Please select a valid 2-digit NACE code");
+          }
+
+          const persistRes = await fetch("/api/auth/complete-signup", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              authUserId: oauthUser.id,
+              email: oauthUser.email,
+              companyName: normalizedCompanyName,
+              companyAddress: normalizedCompanyAddress,
+              incorporationDate,
+              country,
+              naceCode: normalizedNaceCode,
+            }),
+          });
+
+          if (!persistRes.ok) {
+            const persistErr = (await persistRes.json().catch(() => null)) as { error?: string } | null;
+            throw new Error(persistErr?.error ?? "Failed to complete signup.");
+          }
+
+          router.replace("/dashboard");
+          router.refresh();
+          return;
+        }
+
         const normalizedCompanyName = companyName.trim();
         const normalizedCompanyAddress = companyAddress.trim();
 
@@ -188,28 +288,78 @@ export function LoginForm() {
         Back to landing page
       </Link>
       <h1 className="mt-3 text-2xl font-bold">{mode === "login" ? "Login" : "Create account"}</h1>
-      <p className="mt-1 text-sm text-[#5d685f]">Email/password only in V1.</p>
+      <p className="mt-1 text-sm text-[#5d685f]">
+        {mode === "login"
+          ? "Sign in with email/password or social login."
+          : oauthSignupMode
+            ? "Finish your signup by entering your business details."
+            : "Create your account with business details."}
+      </p>
+
+      {mode === "login" && (
+        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => onSocialLogin("google")}
+            disabled={loading}
+            className="rounded-lg border border-[#cfc6af] bg-white px-4 py-2 text-sm font-medium text-[#1f3428] hover:bg-[#f6f3ea] disabled:opacity-60"
+          >
+            Continue with Google
+          </button>
+          <button
+            type="button"
+            onClick={() => onSocialLogin("azure")}
+            disabled={loading}
+            className="rounded-lg border border-[#cfc6af] bg-white px-4 py-2 text-sm font-medium text-[#1f3428] hover:bg-[#f6f3ea] disabled:opacity-60"
+          >
+            Continue with Microsoft
+          </button>
+        </div>
+      )}
+
+      {mode === "login" && (
+        <div className="mt-4 flex items-center gap-3 text-xs text-[#7b8880]">
+          <span className="h-px flex-1 bg-[#dfd8c7]" />
+          OR
+          <span className="h-px flex-1 bg-[#dfd8c7]" />
+        </div>
+      )}
+
       <form className="mt-6 space-y-4" onSubmit={onSubmit}>
-        <div>
-          <label className="text-sm">Email</label>
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            type="email"
-            required
-            className="mt-1 w-full rounded-lg border border-[#cfc6af] bg-white px-3 py-2"
-          />
-        </div>
-        <div>
-          <label className="text-sm">Password</label>
-          <input
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            type="password"
-            required
-            className="mt-1 w-full rounded-lg border border-[#cfc6af] bg-white px-3 py-2"
-          />
-        </div>
+        {mode === "login" ? (
+          <>
+            <div>
+              <label className="text-sm">Email</label>
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                type="email"
+                required
+                className="mt-1 w-full rounded-lg border border-[#cfc6af] bg-white px-3 py-2"
+              />
+            </div>
+            <div>
+              <label className="text-sm">Password</label>
+              <input
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                type="password"
+                required
+                className="mt-1 w-full rounded-lg border border-[#cfc6af] bg-white px-3 py-2"
+              />
+            </div>
+          </>
+        ) : (
+          <div>
+            <label className="text-sm">Email</label>
+            <input
+              value={email}
+              type="email"
+              readOnly
+              className="mt-1 w-full rounded-lg border border-[#cfc6af] bg-[#f6f7f4] px-3 py-2 text-[#607067]"
+            />
+          </div>
+        )}
 
         {mode === "signup" && (
           <>

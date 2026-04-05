@@ -73,6 +73,9 @@ export async function POST(request: NextRequest) {
   await supabase.from("organizations").update({ created_by: authUserId }).eq("id", org.id);
 
   // 4. Create onboarding profile
+  const signupDate = new Date();
+  const trialEndsAt = new Date(signupDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+
   const { error: profileError } = await supabase.from("onboarding_profiles").insert({
     user_id: authUserId,
     organization_id: org.id,
@@ -84,6 +87,8 @@ export async function POST(request: NextRequest) {
     operating_countries: [country],
     modules_selected: [],
     onboarding_completed: false,
+    signup_date: signupDate.toISOString(),
+    trial_ends_at: trialEndsAt.toISOString(),
   });
 
   if (profileError) {

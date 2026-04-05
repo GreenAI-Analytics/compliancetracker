@@ -13,6 +13,8 @@ create table if not exists onboarding_profiles (
   operating_countries text[] not null default '{}',
   modules_selected text[] not null default '{}',
   onboarding_completed boolean not null default false,
+  signup_date timestamp not null default now(),
+  trial_ends_at timestamp not null default (now() + interval '30 days'),
   created_at timestamp not null default now(),
   updated_at timestamp not null default now(),
   unique (user_id)
@@ -52,6 +54,25 @@ create table if not exists hidden_items (
   unique (organization_id, item_type, item_ref)
 );
 
+-- Global admin settings (key/value store)
+create table if not exists admin_settings (
+  key text primary key,
+  value text not null,
+  updated_at timestamp not null default now()
+);
+
+-- Seed default billing price
+insert into admin_settings (key, value)
+values ('billing_monthly_price_eur', '9.99')
+on conflict (key) do nothing;
+
+-- Sponsored organisations (not billed)
+alter table if exists organizations
+  add column if not exists is_sponsored boolean not null default false;
+
+alter table if exists organizations
+  add column if not exists sponsored_reason text;
+
 create index if not exists idx_onboarding_profiles_org on onboarding_profiles(organization_id);
 create index if not exists idx_custom_categories_org on custom_categories(organization_id);
 create index if not exists idx_custom_tasks_org on custom_tasks(organization_id);
@@ -59,3 +80,17 @@ create index if not exists idx_hidden_items_org on hidden_items(organization_id)
 
 alter table if exists onboarding_profiles
   add column if not exists incorporation_date date;
+
+alter table if exists onboarding_profiles
+  add column if not exists signup_date timestamp;
+
+alter table if exists onboarding_profiles
+  add column if not exists trial_ends_at timestamp;
+
+update onboarding_profiles
+set signup_date = coalesce(signup_date, created_at, now())
+where signup_date is null;
+
+update onboarding_profiles
+set trial_ends_at = coalesce(trial_ends_at, signup_date + interval '30 days')
+where trial_ends_at is null;

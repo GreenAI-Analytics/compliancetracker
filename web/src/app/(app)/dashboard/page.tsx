@@ -3,6 +3,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { seedUserTasks } from "@/lib/task-seeder";
 import { redirect } from "next/navigation";
 import { TaskList } from "@/components/task-list";
+import { ComplianceCalendar } from "@/components/compliance-calendar";
 import { LogoutButton } from "@/components/logout-button";
 import Link from "next/link";
 
@@ -81,6 +82,12 @@ type TaskRow = {
   } | null;
 };
 
+type CalendarTask = {
+  id: string;
+  dueDate: string;
+  title: string;
+};
+
 async function getDashboardData(userId: string) {
   const supabase = await createSupabaseServerClient();
   const supabaseAdmin = getSupabaseAdminClient();
@@ -100,6 +107,7 @@ async function getDashboardData(userId: string) {
       priorityTasks: [],
       categories: [],
       customTasks: [],
+      calendarTasks: [],
     };
   }
 
@@ -245,6 +253,14 @@ async function getDashboardData(userId: string) {
       });
   }
 
+  const calendarTasks: CalendarTask[] = visibleRows
+    .filter((i) => i.status !== "completed")
+    .map((i) => ({
+      id: i.id,
+      dueDate: i.due_date,
+      title: formatTaskTitle(i.tasks?.title_key ?? i.tasks?.task_id ?? "Task"),
+    }));
+
   return {
     profile: profile as OnboardingProfile,
     stats: { total, completed, overdue, dueSoon, healthScore },
@@ -252,6 +268,7 @@ async function getDashboardData(userId: string) {
     priorityTasks,
     categories,
     customTasks,
+    calendarTasks,
   };
 }
 
@@ -270,6 +287,7 @@ export default async function DashboardPage() {
     priorityTasks,
     categories,
     customTasks,
+    calendarTasks,
   } = await getDashboardData(user.id);
 
   if (!profile) {
@@ -287,7 +305,9 @@ export default async function DashboardPage() {
   }
 
   const today = new Date();
-  const monthName = today.toLocaleString("en-IE", { month: "long" });
+  const year = today.getFullYear();
+  const monthIndex = today.getMonth();
+
   const quarterLabel = ["Q1", "Q1", "Q1", "Q2", "Q2", "Q2", "Q3", "Q3", "Q3", "Q4", "Q4", "Q4"][
     today.getMonth()
   ];
@@ -393,33 +413,11 @@ export default async function DashboardPage() {
 
         {/* Compliance Calendar */}
         <section className="rounded-xl border border-[#d7e5da] bg-white p-5">
-          <h2 className="text-sm font-semibold text-[#3e5c4b]">Compliance Calendar</h2>
-          <p className="mt-2 text-2xl font-bold">{monthName}</p>
-          {(() => {
-            const thisMonth = upcoming.filter((i) => {
-              const d = new Date(i.due_date);
-              return (
-                d.getMonth() === today.getMonth() &&
-                d.getFullYear() === today.getFullYear()
-              );
-            });
-            if (thisMonth.length === 0)
-              return <p className="mt-2 text-sm text-[#6b8073]">No deadlines this month.</p>;
-            return (
-              <ul className="mt-2 space-y-1">
-                {thisMonth.slice(0, 4).map((inst) => (
-                  <li key={inst.id} className="flex items-center justify-between text-sm">
-                    <span className="truncate text-[#3b4a3f]">
-                      {formatTaskTitle(inst.tasks?.title_key ?? inst.tasks?.task_id ?? "Task")}
-                    </span>
-                    <span className="ml-2 shrink-0 text-xs text-[#7a8880]">
-                      {formatDate(inst.due_date)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            );
-          })()}
+          <ComplianceCalendar
+            initialYear={year}
+            initialMonth={monthIndex}
+            tasks={calendarTasks}
+          />
         </section>
       </div>
 

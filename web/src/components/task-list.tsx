@@ -57,13 +57,46 @@ const WEEKDAY_NAMES = [
 ];
 
 function formatDueRule(rule: string): string {
+  let normalizedRule = rule.trim();
+
+  // Some source values are duplicated (e.g. "Month End+14dMonth End+14d").
+  if (normalizedRule.length % 2 === 0) {
+    const half = normalizedRule.length / 2;
+    const first = normalizedRule.slice(0, half);
+    const second = normalizedRule.slice(half);
+    if (first === second) {
+      normalizedRule = first;
+    }
+  }
+
+  const compactRule = normalizedRule.toLowerCase().replace(/[\s_-]+/g, "");
+  const fyeMatch = compactRule.match(/fye\+(\d+)m/);
+  if (fyeMatch) {
+    const months = parseInt(fyeMatch[1], 10);
+    return `${months} month${months === 1 ? "" : "s"} after financial year end`;
+  }
+
+  const monthEndMatch = compactRule.match(/monthend\+(\d+)d/);
+  if (monthEndMatch) {
+    const days = parseInt(monthEndMatch[1], 10);
+    return `${days} day${days === 1 ? "" : "s"} after month end`;
+  }
+
+  const quarterEndMatch = compactRule.match(/quarterend\+(\d+)d/);
+  if (quarterEndMatch) {
+    const days = parseInt(quarterEndMatch[1], 10);
+    return `${days} day${days === 1 ? "" : "s"} after quarter end`;
+  }
+
   // Parse key=value pairs, e.g. "month=1,day=31" or "iso-week=1,weekday=5"
-  const parts = Object.fromEntries(
-    rule.split(",").map((seg) => {
-      const [k, v] = seg.trim().split("=");
-      return [k.trim(), v?.trim() ?? ""];
-    })
-  );
+  const parts = normalizedRule.includes("=")
+    ? Object.fromEntries(
+        normalizedRule.split(",").map((seg) => {
+          const [k, v] = seg.trim().split("=");
+          return [k.trim(), v?.trim() ?? ""];
+        })
+      )
+    : {};
 
   const month = parts["month"] ? parseInt(parts["month"], 10) : null;
   const day = parts["day"] ? parseInt(parts["day"], 10) : null;
@@ -90,7 +123,10 @@ function formatDueRule(rule: string): string {
   if (quarter !== null && day) return `Day ${day} of Q${quarter}`;
 
   // Fallback: clean up underscores/dashes
-  return rule.replace(/[_-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return normalizedRule
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[_-]/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function ordinal(n: number): string {
@@ -199,27 +235,8 @@ export function TaskList({
         const isLoading = loadingId === row.id || loadingId === task.task_id;
 
         return (
-          <div key={row.id} className="flex items-start gap-4 px-4 py-3">
-            {/* Completion checkbox */}
-            <button
-              aria-label={row.status === "completed" ? "Completed" : "Mark as complete"}
-              disabled={row.status === "completed" || isLoading}
-              onClick={() => markComplete(row.id)}
-              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border transition ${
-                row.status === "completed"
-                  ? "border-[#2e7d32] bg-[#2e7d32] text-white"
-                  : "border-[#afc6b5] hover:border-[#2e7d32]"
-              } disabled:opacity-60`}
-            >
-              {row.status === "completed" && (
-                <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
-                  <path d="M1 4l3 3 6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              )}
-            </button>
-
-            {/* Content */}
-            <div className="min-w-0 flex-1">
+          <div key={row.id} className="px-4 py-3">
+            <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <span
                   className={`text-sm font-medium ${
@@ -269,20 +286,36 @@ export function TaskList({
                   </span>
                 )}
               </div>
-            </div>
 
-            {/* Hide button */}
-            {row.status !== "completed" && (
-              <button
-                aria-label="Hide task"
-                disabled={isLoading}
-                onClick={() => hideTask(task.task_id)}
-                className="shrink-0 rounded p-1 text-xs text-[#7c9387] transition hover:bg-[#edf5ef] hover:text-[#1f4e33] disabled:opacity-40"
-                title="Hide this task"
-              >
-                Hide
-              </button>
-            )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {row.status !== "completed" ? (
+                  <button
+                    aria-label="Mark task as complete"
+                    disabled={isLoading}
+                    onClick={() => markComplete(row.id)}
+                    className="min-h-10 rounded-lg border border-[#2e7d32] bg-[#2e7d32] px-3 py-2 text-sm font-medium text-white transition hover:bg-[#245f26] disabled:opacity-50"
+                  >
+                    {isLoading ? "Saving..." : "Mark Complete"}
+                  </button>
+                ) : (
+                  <span className="inline-flex min-h-10 items-center rounded-lg border border-[#a7c8af] bg-[#eaf5ed] px-3 py-2 text-sm font-medium text-[#1f5e2d]">
+                    Completed
+                  </span>
+                )}
+
+                {row.status !== "completed" && (
+                  <button
+                    aria-label="Hide task"
+                    disabled={isLoading}
+                    onClick={() => hideTask(task.task_id)}
+                    className="min-h-10 rounded-lg border border-[#c7d7ce] bg-white px-3 py-2 text-sm font-medium text-[#4d6357] transition hover:bg-[#edf5ef] disabled:opacity-50"
+                    title="Hide this task"
+                  >
+                    Hide
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         );
       })}

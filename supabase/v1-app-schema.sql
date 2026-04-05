@@ -13,6 +13,8 @@ create table if not exists onboarding_profiles (
   operating_countries text[] not null default '{}',
   modules_selected text[] not null default '{}',
   onboarding_completed boolean not null default false,
+  task_reminders_enabled boolean not null default true,
+  task_reminder_days_before int not null default 7,
   signup_date timestamp not null default now(),
   trial_ends_at timestamp not null default (now() + interval '30 days'),
   created_at timestamp not null default now(),
@@ -87,6 +89,12 @@ alter table if exists onboarding_profiles
 alter table if exists onboarding_profiles
   add column if not exists trial_ends_at timestamp;
 
+alter table if exists onboarding_profiles
+  add column if not exists task_reminders_enabled boolean;
+
+alter table if exists onboarding_profiles
+  add column if not exists task_reminder_days_before int;
+
 update onboarding_profiles
 set signup_date = coalesce(signup_date, created_at, now())
 where signup_date is null;
@@ -94,3 +102,11 @@ where signup_date is null;
 update onboarding_profiles
 set trial_ends_at = coalesce(trial_ends_at, signup_date + interval '30 days')
 where trial_ends_at is null;
+
+update onboarding_profiles
+set task_reminders_enabled = coalesce(task_reminders_enabled, true)
+where task_reminders_enabled is null;
+
+update onboarding_profiles
+set task_reminder_days_before = coalesce(task_reminder_days_before, 7)
+where task_reminder_days_before is null;

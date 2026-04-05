@@ -3,6 +3,11 @@ import { cookies } from "next/headers";
 import { ADMIN_SESSION_COOKIE, readAdminSession } from "@/lib/admin-auth";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
+function firstRelation<T>(value: T | T[] | null | undefined): T | null {
+  if (!value) return null;
+  return Array.isArray(value) ? (value[0] ?? null) : value;
+}
+
 export async function GET() {
   const cookieStore = await cookies();
   const session = readAdminSession(cookieStore.get(ADMIN_SESSION_COOKIE)?.value);
@@ -33,6 +38,13 @@ export async function GET() {
       ? Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / 86400000))
       : 0;
 
+    const orgRelation = firstRelation(
+      row.organizations as unknown as { is_sponsored: boolean; sponsored_reason: string | null }[]
+    );
+    const userRelation = firstRelation(
+      row.users as unknown as { email: string; full_name: string | null }[]
+    );
+
     return {
       profileId: row.id,
       orgId: row.organization_id,
@@ -45,10 +57,10 @@ export async function GET() {
       trialActive,
       daysLeft,
       onboardingCompleted: row.onboarding_completed,
-      isSponsored: ((row.organizations as unknown as { is_sponsored: boolean }[])[0])?.is_sponsored ?? false,
-      sponsoredReason: ((row.organizations as unknown as { sponsored_reason: string | null }[])[0])?.sponsored_reason ?? null,
-      userEmail: ((row.users as unknown as { email: string }[])[0])?.email ?? "",
-      userName: ((row.users as unknown as { full_name: string | null }[])[0])?.full_name ?? null,
+      isSponsored: orgRelation?.is_sponsored ?? false,
+      sponsoredReason: orgRelation?.sponsored_reason ?? null,
+      userEmail: userRelation?.email ?? "",
+      userName: userRelation?.full_name ?? null,
     };
   });
 

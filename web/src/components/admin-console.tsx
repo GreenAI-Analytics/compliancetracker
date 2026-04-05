@@ -246,19 +246,27 @@ function OrgsPanel() {
                   </div>
                 </div>
                 <div className="text-right">
-                  {org.trialActive ? (
-                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
-                      {org.daysLeft}d left
+                  {org.isSponsored ? (
+                    <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700">
+                      Sponsored
                     </span>
                   ) : (
-                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-600">
-                      Trial expired
-                    </span>
-                  )}
-                  {org.trialEndsAt && (
-                    <div className="mt-0.5 text-xs text-[#5f7668]">
-                      ends {new Date(org.trialEndsAt).toLocaleDateString()}
-                    </div>
+                    <>
+                      {org.trialActive ? (
+                        <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                          {org.daysLeft}d left
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-600">
+                          Trial expired
+                        </span>
+                      )}
+                      {org.trialEndsAt && (
+                        <div className="mt-0.5 text-xs text-[#5f7668]">
+                          ends {new Date(org.trialEndsAt).toLocaleDateString()}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

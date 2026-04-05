@@ -3,6 +3,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { SettingsCategoryToggles } from "@/components/settings-category-toggles";
 import { CustomTaskManager } from "@/components/custom-task-manager";
 import { HiddenTasksManager } from "@/components/hidden-tasks-manager";
+import { TaskReminderSettings } from "@/components/task-reminder-settings";
 import { redirect } from "next/navigation";
 
 type ProfileRecord = {
@@ -12,6 +13,8 @@ type ProfileRecord = {
   country: string;
   nace: string;
   organization_id: string;
+  task_reminders_enabled: boolean | null;
+  task_reminder_days_before: number | null;
 };
 
 export default async function SettingsPage() {
@@ -26,7 +29,7 @@ export default async function SettingsPage() {
 
   const { data: profile } = await queryClient
     .from("onboarding_profiles")
-    .select("company_name, business_address, incorporation_date, country, nace, organization_id")
+    .select("company_name, business_address, incorporation_date, country, nace, organization_id, task_reminders_enabled, task_reminder_days_before")
     .eq("user_id", user.id)
     .single();
 
@@ -164,6 +167,17 @@ export default async function SettingsPage() {
         </p>
         <CustomTaskManager
           disabled={!companyProfile?.organization_id}
+        />
+      </section>
+
+      <section className="mt-6 rounded-xl border border-[#d7e5da] bg-white p-5">
+        <h2 className="text-lg font-semibold text-[#1a2e22]">Task Reminders</h2>
+        <p className="mt-1 text-sm text-[#5f7668]">
+          Choose how early you want to be reminded about upcoming compliance tasks.
+        </p>
+        <TaskReminderSettings
+          initialEnabled={companyProfile?.task_reminders_enabled ?? true}
+          initialDaysBefore={companyProfile?.task_reminder_days_before ?? 7}
         />
       </section>
 

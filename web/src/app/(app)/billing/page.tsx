@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { PaymentInformationForm } from "@/components/payment-information-form";
+import { BillingActions } from "@/components/billing-actions";
 import { redirect } from "next/navigation";
 
 const PRICE_KEY = "billing_monthly_price_eur";
@@ -44,7 +45,7 @@ export default async function BillingPage() {
     profile?.organization_id
       ? (adminSupabase ?? supabase)
           .from("organizations")
-        .select("name, is_sponsored, sponsored_reason, billing_contact_name, billing_email, billing_address, vat_number, purchase_order_ref, payment_method")
+          .select("name, is_sponsored, sponsored_reason, billing_contact_name, billing_email, billing_address, vat_number, purchase_order_ref, payment_method, stripe_customer_id, stripe_subscription_status")
           .eq("id", profile.organization_id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
@@ -66,15 +67,18 @@ export default async function BillingPage() {
         vat_number?: string | null;
         purchase_order_ref?: string | null;
         payment_method?: "card" | "bank_transfer" | "invoice" | "other" | null;
+        stripe_customer_id?: string | null;
+        stripe_subscription_status?: string | null;
       }
     | null;
   const isSponsored = Boolean(org?.is_sponsored);
 
   const signupDate = profile?.signup_date ? new Date(profile.signup_date) : null;
   const trialEndsAt = profile?.trial_ends_at ? new Date(profile.trial_ends_at) : null;
+  const now = new Date();
 
   const trialDaysLeft = trialEndsAt
-    ? Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    ? Math.max(0, Math.ceil((trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
     : null;
   const trialExpired = trialDaysLeft === 0;
 
@@ -138,6 +142,12 @@ export default async function BillingPage() {
           )}
         </div>
       </div>
+
+      <BillingActions
+        isSponsored={isSponsored}
+        hasStripeCustomer={Boolean(org?.stripe_customer_id)}
+        subscriptionStatus={org?.stripe_subscription_status ?? null}
+      />
 
       <section className="mt-6 rounded-xl border border-[#d7e5da] bg-white p-5">
         <h2 className="text-lg font-semibold text-[#1a2e22]">Payment Information</h2>

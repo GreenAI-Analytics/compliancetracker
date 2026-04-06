@@ -28,7 +28,21 @@ export function verifyAdminCredentials(email: string, password: string): boolean
   const credentials = getAdminCredentials();
   if (!credentials) return false;
 
-  return email.trim().toLowerCase() === credentials.email && password === credentials.password;
+  const normalizedEmail = email.trim().toLowerCase();
+  const emailBuf = Buffer.from(normalizedEmail, "utf8");
+  const expectedEmailBuf = Buffer.from(credentials.email, "utf8");
+
+  const passwordBuf = Buffer.from(password, "utf8");
+  const expectedPasswordBuf = Buffer.from(credentials.password, "utf8");
+
+  const emailMatches =
+    emailBuf.length === expectedEmailBuf.length &&
+    crypto.timingSafeEqual(emailBuf, expectedEmailBuf);
+  const passwordMatches =
+    passwordBuf.length === expectedPasswordBuf.length &&
+    crypto.timingSafeEqual(passwordBuf, expectedPasswordBuf);
+
+  return emailMatches && passwordMatches;
 }
 
 export function createAdminSessionToken(email: string): string | null {

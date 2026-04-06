@@ -181,7 +181,7 @@ export function TaskList({
     }
   }
 
-  async function hideTask(taskId: string, organizationId?: string) {
+  async function hideTask(taskId: string) {
     setLoadingId(taskId);
     setActionError(null);
     try {

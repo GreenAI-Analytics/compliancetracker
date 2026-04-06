@@ -341,6 +341,11 @@ function BillingPanel() {
   const [saved, setSaved] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [testEmail, setTestEmail] = useState("");
+  const [testAmount, setTestAmount] = useState("9.99");
+  const [testBusy, setTestBusy] = useState(false);
+  const [testMessage, setTestMessage] = useState<string | null>(null);
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   async function load() {
@@ -374,6 +379,42 @@ function BillingPanel() {
       setError(e instanceof Error ? e.message : "Error");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function startPaymentTest() {
+    const normalizedEmail = testEmail.trim().toLowerCase();
+    if (!normalizedEmail) {
+      setTestMessage("Please enter a test customer email.");
+      return;
+    }
+
+    setTestBusy(true);
+    setTestMessage(null);
+    setCheckoutUrl(null);
+
+    try {
+      const res = await fetch("/api/admin/payment-test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: normalizedEmail, amount: testAmount }),
+      });
+
+      const json = (await res.json().catch(() => null)) as
+        | { ok?: boolean; url?: string; error?: string }
+        | null;
+
+      if (!res.ok || !json?.url) {
+        throw new Error(json?.error ?? "Failed to create test payment checkout.");
+      }
+
+      setCheckoutUrl(json.url);
+      setTestMessage("Stripe checkout created. Opening in a new tab...");
+      window.open(json.url, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      setTestMessage(e instanceof Error ? e.message : "Failed to create test payment checkout.");
+    } finally {
+      setTestBusy(false);
     }
   }
 
@@ -430,6 +471,69 @@ function BillingPanel() {
           </div>
         )}
         {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      </div>
+
+      <div className="mt-4 rounded-xl border border-[#d7e5da] bg-white p-4">
+        <h3 className="text-sm font-semibold text-[#1a2e22]">Payment Test</h3>
+        <p className="mt-1 text-xs text-[#5f7668]">
+          Create a one-time Stripe checkout session in test mode to validate payment flow.
+        </p>
+
+        <div className="mt-3 grid gap-2 sm:grid-cols-[1fr,140px,auto] sm:items-end">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-[#5f7668]">Customer email</span>
+            <input
+              type="email"
+              value={testEmail}
+              onChange={(e) => setTestEmail(e.target.value)}
+              placeholder="test.customer@company.com"
+              className="rounded border border-[#d7e5da] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2e7d32]"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-[#5f7668]">Amount (EUR)</span>
+            <input
+              type="number"
+              min="0.50"
+              step="0.01"
+              value={testAmount}
+              onChange={(e) => setTestAmount(e.target.value)}
+              className="rounded border border-[#d7e5da] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2e7d32]"
+            />
+          </label>
+
+          <button
+            onClick={startPaymentTest}
+            disabled={testBusy}
+            className="rounded-lg bg-[#2e7d32] px-3 py-2 text-xs font-medium text-white hover:bg-[#245f26] disabled:opacity-50"
+          >
+            {testBusy ? "Starting..." : "Start Payment Test"}
+          </button>
+        </div>
+
+        {testMessage && (
+          <p
+            className={`mt-2 text-xs ${
+              testMessage.toLowerCase().includes("checkout") || testMessage.toLowerCase().includes("opening")
+                ? "text-[#256338]"
+                : "text-red-600"
+            }`}
+          >
+            {testMessage}
+          </p>
+        )}
+
+        {checkoutUrl && (
+          <a
+            href={checkoutUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 inline-block text-xs text-[#2e7d32] underline"
+          >
+            Open Stripe checkout
+          </a>
+        )}
       </div>
     </div>
   );

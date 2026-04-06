@@ -63,6 +63,14 @@ create table if not exists admin_settings (
   updated_at timestamp not null default now()
 );
 
+create table if not exists admin_login_rate_limits (
+  key text primary key,
+  attempts int not null default 0,
+  window_started_at timestamp not null default now(),
+  blocked_until timestamp,
+  updated_at timestamp not null default now()
+);
+
 create table if not exists task_reminder_deliveries (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references users(id) on delete cascade,
@@ -107,10 +115,29 @@ alter table if exists organizations
 alter table if exists organizations
   add column if not exists payment_method text;
 
+alter table if exists organizations
+  add column if not exists stripe_customer_id text;
+
+alter table if exists organizations
+  add column if not exists stripe_subscription_id text;
+
+alter table if exists organizations
+  add column if not exists stripe_subscription_status text;
+
+alter table if exists organizations
+  add column if not exists stripe_current_period_end timestamp;
+
 create index if not exists idx_onboarding_profiles_org on onboarding_profiles(organization_id);
 create index if not exists idx_custom_categories_org on custom_categories(organization_id);
 create index if not exists idx_custom_tasks_org on custom_tasks(organization_id);
 create index if not exists idx_hidden_items_org on hidden_items(organization_id);
+create index if not exists idx_admin_login_rate_limits_blocked_until on admin_login_rate_limits(blocked_until);
+create unique index if not exists idx_organizations_stripe_customer_id
+  on organizations(stripe_customer_id)
+  where stripe_customer_id is not null;
+create index if not exists idx_organizations_stripe_subscription_id
+  on organizations(stripe_subscription_id)
+  where stripe_subscription_id is not null;
 create index if not exists idx_task_reminder_deliveries_user on task_reminder_deliveries(user_id);
 create index if not exists idx_task_reminder_deliveries_due_date on task_reminder_deliveries(due_date);
 create index if not exists idx_task_reminder_deliveries_sent_at on task_reminder_deliveries(sent_at);

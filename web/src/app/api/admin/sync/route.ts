@@ -7,6 +7,7 @@ const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 
 const FUNCTION_NAMES = {
   knowledge: "sync-compliance-knowledge",
+  reminders: "send-task-reminders",
   rules: "sync-compliance-rules",
 } as const;
 
@@ -21,7 +22,10 @@ export async function POST(request: NextRequest) {
   const target = body.target as SyncTarget | undefined;
 
   if (!target || !(target in FUNCTION_NAMES)) {
-    return NextResponse.json({ error: "target must be 'knowledge' or 'rules'." }, { status: 400 });
+    return NextResponse.json(
+      { error: "target must be 'knowledge', 'reminders', or 'rules'." },
+      { status: 400 }
+    );
   }
 
   const fnName = FUNCTION_NAMES[target];

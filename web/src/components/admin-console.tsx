@@ -435,11 +435,90 @@ function BillingPanel() {
   );
 }
 
+function ReminderPanel() {
+  const [testEmail, setTestEmail] = useState("");
+  const [testSending, setTestSending] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
+
+  async function sendTestReminderEmail() {
+    const email = testEmail.trim().toLowerCase();
+    if (!email) {
+      setTestResult("Please enter an email address.");
+      return;
+    }
+
+    setTestSending(true);
+    setTestResult(null);
+
+    try {
+      const res = await fetch("/api/admin/test-reminder-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const json = (await res.json().catch(() => null)) as
+        | { ok?: boolean; id?: string | null; error?: string }
+        | null;
+
+      if (!res.ok) {
+        throw new Error(json?.error ?? "Failed to send test email.");
+      }
+
+      setTestResult(
+        json?.id
+          ? `Test email sent. Resend id: ${json.id}`
+          : "Test email sent successfully."
+      );
+    } catch (e) {
+      setTestResult(e instanceof Error ? e.message : "Failed to send test email.");
+    } finally {
+      setTestSending(false);
+    }
+  }
+
+  return (
+    <div>
+      <h2 className="text-lg font-semibold text-[#1a2e22]">Reminder Settings</h2>
+      <p className="mt-1 text-sm text-[#5f7668]">
+        Send a test reminder email using the same notification template used for scheduled reminders.
+      </p>
+      <div className="mt-4 rounded-xl border border-[#d7e5da] bg-white p-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <input
+            type="email"
+            placeholder="name@company.com"
+            value={testEmail}
+            onChange={(e) => setTestEmail(e.target.value)}
+            className="w-full rounded border border-[#d7e5da] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2e7d32] sm:max-w-sm"
+          />
+          <button
+            onClick={sendTestReminderEmail}
+            disabled={testSending}
+            className="rounded-lg bg-[#2e7d32] px-3 py-2 text-xs font-medium text-white hover:bg-[#245f26] disabled:opacity-50"
+          >
+            {testSending ? "Sending..." : "Send Test Email"}
+          </button>
+        </div>
+        {testResult && (
+          <p
+            className={`mt-2 text-xs ${
+              testResult.toLowerCase().includes("sent") ? "text-[#256338]" : "text-red-600"
+            }`}
+          >
+            {testResult}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SyncPanel() {
   const [results, setResults] = useState<Record<string, string>>({});
   const [working, setWorking] = useState<string | null>(null);
 
-  async function runSync(target: "knowledge" | "rules") {
+  async function runSync(target: "knowledge" | "reminders" | "rules") {
     setWorking(target);
     try {
       const res = await fetch("/api/admin/sync", {
@@ -471,28 +550,37 @@ function SyncPanel() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-[#1a2e22]">Data Sync</h2>
+      <h2 className="text-lg font-semibold text-[#1a2e22]">Data Jobs</h2>
       <p className="mt-1 text-sm text-[#5f7668]">
-        Trigger Edge Functions to pull latest data from the compliance-knowledge and
-        compliance-rules repositories.
+        Trigger Edge Functions for content sync and operational reminder jobs.
       </p>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        {(["knowledge", "rules"] as const).map((target) => (
+      <div className="mt-4 grid gap-4 sm:grid-cols-3">
+        {(["knowledge", "rules", "reminders"] as const).map((target) => (
           <div key={target} className="rounded-xl border border-[#d7e5da] bg-white p-4">
             <div className="font-medium capitalize text-[#1a2e22]">
-              {target === "knowledge" ? "Knowledge Hub" : "Compliance Rules"}
+              {target === "knowledge"
+                ? "Knowledge Hub"
+                : target === "rules"
+                  ? "Compliance Rules"
+                  : "Task Reminders"}
             </div>
             <p className="mt-1 text-xs text-[#5f7668]">
               {target === "knowledge"
                 ? "Syncs articles from the compliance-knowledge repo."
-                : "Syncs task rules from the compliance-rules repo."}
+                : target === "rules"
+                  ? "Syncs task rules from the compliance-rules repo."
+                  : "Runs the reminder job and sends digest emails only when tasks are due."}
             </p>
             <button
               onClick={() => runSync(target)}
               disabled={working === target}
               className="mt-3 rounded-lg bg-[#2e7d32] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#245f26] disabled:opacity-50"
             >
-              {working === target ? "Running…" : "Run Sync"}
+              {working === target
+                ? "Running..."
+                : target === "reminders"
+                  ? "Run Reminder Job"
+                  : "Run Sync"}
             </button>
             {results[target] && (
               <pre className="mt-3 max-h-40 overflow-auto rounded-lg bg-[#f0f4f1] p-2 text-xs text-[#2e4b3c]">
@@ -630,6 +718,7 @@ const TABS = [
   { id: "stats", label: "Stats" },
   { id: "orgs", label: "Organisations" },
   { id: "billing", label: "Billing" },
+  { id: "reminder", label: "Reminder" },
   { id: "sync", label: "Data Sync" },
   { id: "articles", label: "Articles" },
 ] as const;
@@ -667,6 +756,7 @@ export function AdminConsole({ email }: { email: string }) {
         {tab === "stats" && <StatsPanel />}
         {tab === "orgs" && <OrgsPanel />}
         {tab === "billing" && <BillingPanel />}
+        {tab === "reminder" && <ReminderPanel />}
         {tab === "sync" && <SyncPanel />}
         {tab === "articles" && <ArticlesPanel />}
       </div>

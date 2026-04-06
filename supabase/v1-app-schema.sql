@@ -63,6 +63,20 @@ create table if not exists admin_settings (
   updated_at timestamp not null default now()
 );
 
+create table if not exists task_reminder_deliveries (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references users(id) on delete cascade,
+  task_source text not null check (task_source in ('standard', 'custom')),
+  source_id uuid not null,
+  organization_id uuid references organizations(id) on delete set null,
+  due_date date not null,
+  days_before int not null check (days_before in (1, 3, 7, 14, 30)),
+  resend_email_id text,
+  sent_at timestamp not null default now(),
+  created_at timestamp not null default now(),
+  unique (user_id, task_source, source_id, days_before, due_date)
+);
+
 -- Seed default billing price
 insert into admin_settings (key, value)
 values ('billing_monthly_price_eur', '9.99')
@@ -97,6 +111,9 @@ create index if not exists idx_onboarding_profiles_org on onboarding_profiles(or
 create index if not exists idx_custom_categories_org on custom_categories(organization_id);
 create index if not exists idx_custom_tasks_org on custom_tasks(organization_id);
 create index if not exists idx_hidden_items_org on hidden_items(organization_id);
+create index if not exists idx_task_reminder_deliveries_user on task_reminder_deliveries(user_id);
+create index if not exists idx_task_reminder_deliveries_due_date on task_reminder_deliveries(due_date);
+create index if not exists idx_task_reminder_deliveries_sent_at on task_reminder_deliveries(sent_at);
 
 alter table if exists onboarding_profiles
   add column if not exists incorporation_date date;

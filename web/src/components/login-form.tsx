@@ -347,6 +347,11 @@ export function LoginForm() {
                 required
                 className="mt-1 w-full rounded-lg border border-[#cfc6af] bg-white px-3 py-2"
               />
+              <div className="mt-2 text-right">
+                <Link href="/reset-password" className="text-sm text-[#125f47] underline">
+                  Forgot password?
+                </Link>
+              </div>
             </div>
           </>
         ) : (

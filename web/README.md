@@ -1,4 +1,4 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is the Compliance Tracker web app built with [Next.js](https://nextjs.org) and Supabase Auth.
 
 ## Getting Started
 
@@ -16,9 +16,19 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Auth Notes
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Login page includes a "Forgot password?" action that links to `/reset-password`.
+- Password reset emails are sent through Supabase Auth.
+- In Supabase Auth URL configuration, add your reset callback URL(s):
+	- `http://localhost:3000/reset-password`
+	- `https://<your-production-domain>/reset-password`
+
+If the redirect URL is not allow-listed in Supabase, password reset links will fail.
+
+You can start editing the app by modifying `src/app/page.tsx`. The page auto-updates as you edit the file.
+
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts).
 
 ## Learn More
 

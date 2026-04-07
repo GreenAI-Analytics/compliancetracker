@@ -1,46 +1,107 @@
-This is the Compliance Tracker web app built with [Next.js](https://nextjs.org) and Supabase Auth.
+# Compliance Tracker — Web App
 
-## Getting Started
+Next.js 16 app with Supabase Auth, Stripe billing, and Resend email.
 
-First, run the development server:
+## Local setup
 
 ```bash
+cd web
+cp .env.local.example .env.local   # fill in your values
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-## Auth Notes
+## Environment variables
 
-- Login page includes a "Forgot password?" action that links to `/reset-password`.
-- Password reset emails are sent through Supabase Auth.
-- In Supabase Auth URL configuration, add your reset callback URL(s):
-	- `http://localhost:3000/reset-password`
-	- `https://<your-production-domain>/reset-password`
+All required variables are documented in `.env.local.example`. Copy it to `.env.local` and fill in each value before running the app. The file is gitignored and will never be committed.
 
-If the redirect URL is not allow-listed in Supabase, password reset links will fail.
+Key variables:
 
-You can start editing the app by modifying `src/app/page.tsx`. The page auto-updates as you edit the file.
+| Variable | Purpose |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase public anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-side Supabase admin key |
+| `APP_ADMIN_EMAIL` / `APP_ADMIN_PASSWORD` | Internal `/admin` console credentials |
+| `APP_ADMIN_SESSION_SECRET` | Cookie signing secret (32-byte hex) |
+| `STRIPE_SECRET_KEY` | Stripe secret key — use `sk_test_...` locally |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
+| `RESEND_API_KEY` | Resend API key for reminder emails |
+| `REMINDER_FROM_EMAIL` | Verified sender address for reminder emails |
+| `APP_BASE_URL` | Base URL used in redirect links (e.g. `http://localhost:3000`) |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts).
+## Auth
 
-## Learn More
+### Login
 
-To learn more about Next.js, take a look at the following resources:
+- Email/password login at `/login`
+- Google and Microsoft OAuth via Supabase
+- New users complete a signup form (company name, country, NACE code)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Forgot password
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- "Forgot password?" link on the login page navigates to `/reset-password`
+- User enters their email; Supabase sends a reset link
+- The reset link redirects back to `/reset-password` with a recovery token
+- User sets a new password; on success they are returned to `/login`
 
-## Deploy on Vercel
+**Required Supabase configuration** — add these URLs to Supabase Auth → URL Configuration → Redirect URLs:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+http://localhost:3000/reset-password
+https://<your-production-domain>/reset-password
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Reset links will fail if the redirect URL is not on the allow-list.
+
+### OAuth (Google / Microsoft)
+
+Add to Supabase Auth → URL Configuration → Redirect URLs:
+
+```
+http://localhost:3000/login?mode=signup&fresh=1&oauth=1
+https://<your-production-domain>/login?mode=signup&fresh=1&oauth=1
+```
+
+Provider callback URL to register in Google and Microsoft developer consoles:
+
+```
+https://<your-project-ref>.supabase.co/auth/v1/callback
+```
+
+## Available scripts
+
+| Script | Description |
+|---|---|
+| `npm run dev` | Start development server on port 3000 |
+| `npm run build` | Production build |
+| `npm run start` | Run production build locally |
+| `npm run lint` | Run ESLint |
+| `npm run test:e2e` | Run Playwright end-to-end tests (headless) |
+| `npm run test:e2e:ui` | Run Playwright with interactive UI |
+
+## End-to-end tests
+
+Playwright tests live in `tests/e2e/`. The test runner starts `next dev` automatically.
+
+```bash
+npm run test:e2e
+```
+
+First run requires the Playwright browser to be installed:
+
+```bash
+npx playwright install chromium
+```
+
+Current test coverage:
+
+- `forgot-password.spec.ts` — verifies the forgot-password link on login, form submission, and success message (Supabase reset endpoint is stubbed)
+
+## Deployment
+
+The app is deployed on Vercel (project: `compliancetracker`). Pushing to `master` triggers an automatic production deployment.
+
+Ensure all environment variables listed in `.env.local.example` are set in the Vercel project settings before deploying.

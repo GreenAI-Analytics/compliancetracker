@@ -1,63 +1,38 @@
 # Compliance Tracker
 
-## Sprint Kickoff (April 2026)
+## Sprint Update (April 7, 2026)
 
-This section is the handoff point for the next sprint.
+### Completed This Sprint
 
-### Current Product Status
+- **Forgot password flow** — `/reset-password` page added with request and password-update forms; "Forgot password?" link wired into the login form (`web/src/components/login-form.tsx`, `web/src/components/reset-password-form.tsx`, `web/src/app/reset-password/page.tsx`)
+- **End-to-end tests** — Playwright installed and configured; `tests/e2e/forgot-password.spec.ts` covers the happy-path reset request and success state
+- **Favicon** — blank `favicon.ico` replaced with multi-resolution ICO (16–256 px) generated from `public/favicon.png`
+- **Environment example file** — `web/.env.local.example` added with all required variables documented
+- **Vercel project** renamed to `compliancetracker` in local link metadata (`web/.vercel/project.json`)
+- **web/README.md** rewritten with full local setup, environment variable reference, auth notes, and test instructions
 
-- Billing settings now include organization-level payment information capture.
-- Settings APIs were hardened for safer organization-scoped updates.
-- Social login UI now supports Google and Microsoft OAuth and routes social users to signup completion.
-- Supabase project is linked and schema updates for billing fields have been applied.
+### Immediate Priorities
 
-### Completed In Last Sprint
-
-- Added payment information form and persistence flow:
-  - `web/src/app/(app)/billing/page.tsx`
-  - `web/src/components/payment-information-form.tsx`
-  - `web/src/app/api/settings/payment-information/route.ts`
-- Added organization payment columns to schema:
-  - `supabase/migrations/20260405161000_add_organization_payment_fields.sql`
-  - `supabase/v1-app-schema.sql`
-  - `supabase_schema.sql`
-- Hardened settings APIs:
-  - `web/src/app/api/settings/category-visibility/route.ts`
-  - `web/src/app/api/settings/task-reminders/route.ts`
-- Updated social login providers from GitHub to Microsoft in login UI:
-  - `web/src/components/login-form.tsx`
-
-### Immediate Sprint Priorities
-
-1. Finalize Supabase OAuth provider setup.
-2. Validate full social signup flow end-to-end (Google and Microsoft).
-3. Add duplicate-protection in complete-signup flow for existing social users.
-4. Add automated tests for billing payment-information API and social signup path.
-5. Prepare i18n implementation plan (deferred to later sprint execution).
+1. Add idempotent behavior in `complete-signup` for already-provisioned OAuth users (duplicate protection).
+2. Add UX guard: redirect OAuth users who have completed onboarding directly to dashboard.
+3. Validate full social signup flow end-to-end (Google and Microsoft) once OAuth providers are enabled in Supabase.
+4. Add integration tests for billing payment-information API.
+5. Prepare i18n implementation plan.
 
 ### OAuth Setup Checklist (Required)
 
 Configure the following in Supabase Auth:
 
-- Enable providers:
-  - Google
-  - Azure (Microsoft)
-- Site URL:
-  - `http://localhost:3000` (local)
-  - production URL (when available)
-- Additional Redirect URLs:
+- Enable providers: Google, Azure (Microsoft)
+- Site URL: `http://localhost:3000` (local) / production URL
+- Redirect URLs:
   - `http://localhost:3000/login?mode=signup&fresh=1&oauth=1`
-  - production equivalent with same query params
+  - `http://localhost:3000/reset-password`
+  - production equivalents
 
-Provider callback URL to register in Google and Microsoft apps:
+Provider callback URL to register in Google and Microsoft developer consoles:
 
 - `https://mqlwmewhkxgystwktcbc.supabase.co/auth/v1/callback`
-
-### Known Follow-Up Gaps
-
-- `complete-signup` currently assumes a new org/user profile creation path; add idempotent behavior for already-provisioned OAuth users.
-- Add UX guard: if OAuth user already completed onboarding, redirect directly to dashboard.
-- Add integration tests for signup provisioning and billing field persistence.
 
 ### Local Runbook
 

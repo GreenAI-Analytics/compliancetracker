@@ -13,6 +13,7 @@ type NaceSectionOption = {
 type NaceCodeOption = {
   code: string;
   section: string;
+  description: string;
 };
 
 type CountryOption = {
@@ -451,7 +452,7 @@ export function LoginForm() {
                 <option value="">Select NACE code</option>
                 {filteredNaceOptions.map((item) => (
                   <option key={item.code} value={item.code}>
-                    {item.code}
+                    {item.code}.XX - {item.description}
                   </option>
                 ))}
               </select>

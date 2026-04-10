@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { getNaceSectionCode, NACE_SECTIONS } from "@/lib/nace-sections";
+import { NACE_TWO_DIGIT_DESCRIPTIONS } from "@/lib/nace-two-digit-descriptions";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 type NaceOption = {
   code: string;
   section: string;
+  description: string;
 };
 
 export async function GET() {
@@ -36,6 +38,7 @@ export async function GET() {
     .map((code) => ({
       code,
       section: getNaceSectionCode(code) ?? "",
+      description: NACE_TWO_DIGIT_DESCRIPTIONS[code] ?? `NACE division ${code}`,
     }));
 
   const usedSections = new Set(naceOptions.map((option) => option.section).filter((x) => x));

@@ -14,9 +14,20 @@ const bodyFont = IBM_Plex_Sans({
   weight: ["400", "500", "600"],
 });
 
+const metadataBase = new URL(process.env.APP_BASE_URL?.trim().replace(/\/$/, "") || "http://localhost:3000");
+
 export const metadata: Metadata = {
-  title: "Compliance Tracker",
-  description: "Track and manage SME compliance obligations in one place",
+  title: {
+    default: "Compliance Tracker",
+    template: "%s | Compliance Tracker",
+  },
+  description: "Compliance operations platform for EU SMEs: country and NACE-specific task tracking, reminders, and audit-ready workflows.",
+  metadataBase,
+  openGraph: {
+    title: "Compliance Tracker",
+    description: "Run country and NACE-specific compliance workflows without spreadsheet overhead.",
+    type: "website",
+  },
   icons: {
     icon: "/favicon.ico",
     shortcut: "/favicon.ico",

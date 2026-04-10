@@ -2,31 +2,39 @@ import Image from "next/image";
 import Link from "next/link";
 
 const highlights = [
-  "Country + NACE-specific task checklists",
-  "Knowledge guidance synced from your compliance content repos",
-  "One place for deadlines, hidden sections, and custom categories",
+  "Country and NACE-specific compliance tasks out of the box",
+  "One workspace for deadlines, calendar views, and evidence tracking",
+  "Operational controls for hidden tasks, custom tasks, and reminders",
+];
+
+const trustSignals = [
+  "Built for EU SMEs with role-based organization workflows",
+  "Automated nightly sync of compliance rules and guidance",
+  "Hosted on modern infrastructure with managed authentication",
 ];
 
 const steps = [
   {
-    title: "Set up your company",
-    detail: "Choose your country, NACE code, and active modules during onboarding.",
+    title: "Onboard in minutes",
+    detail: "Select your country, NACE code, and company profile to generate your baseline obligations.",
   },
   {
-    title: "Track what matters",
-    detail: "See priority tasks, timelines, and calendar deadlines in one dashboard.",
+    title: "Run compliance in one place",
+    detail: "Track status, owners, and due dates across dashboard, compliance, and historical views.",
   },
   {
-    title: "Stay current",
-    detail: "Nightly sync keeps rules and knowledge content aligned with GitHub.",
+    title: "Stay continuously updated",
+    detail: "Rules and knowledge updates sync automatically so your team always works from current guidance.",
   },
 ];
 
 export default function LandingPage() {
+  const year = new Date().getFullYear();
+
   return (
-    <div className="min-h-screen px-4 py-10 md:py-14">
-      <div className="mx-auto grid max-w-6xl gap-6 md:grid-cols-[1.3fr_0.9fr]">
-        <section className="rounded-3xl border border-[#d9d2bf] bg-[#fffdf8] p-8 shadow-[0_20px_50px_rgba(29,42,36,0.1)] md:p-12">
+    <div className="min-h-screen px-4 py-8 md:py-14">
+      <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1.35fr_0.9fr]">
+        <section className="rounded-3xl border border-[#d9d2bf] bg-[#fffdf8] p-7 shadow-[0_20px_50px_rgba(29,42,36,0.1)] md:p-12">
           <Image
             src="/compliance-tracker-logo.png"
             alt="Compliance Tracker"
@@ -35,25 +43,26 @@ export default function LandingPage() {
             className="h-auto w-[220px] md:w-[320px]"
             priority
           />
-          <div className="pill inline-flex rounded-full px-3 py-1 text-xs">Built for EU SMEs</div>
+          <div className="pill mt-4 inline-flex rounded-full px-3 py-1 text-xs">Built for EU SMEs</div>
           <h1 className="mt-4 text-4xl font-bold leading-tight md:text-6xl">
-            Simplify compliance tracking without the legal noise.
+            Compliance operations, without spreadsheet chaos.
           </h1>
           <p className="mt-5 max-w-2xl text-[#516058]">
-            Compliance Track turns country and NACE-specific obligations into actionable checklists,
-            deadlines, and knowledge guidance for your team.
+            Compliance Tracker turns country and NACE obligations into clear weekly execution,
+            so your team can act early, stay audit-ready, and avoid missed deadlines.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
               href="/login?mode=signup"
-              className="rounded-xl bg-[var(--accent)] px-5 py-3 text-white hover:bg-[var(--accent-strong)]"
+              className="rounded-xl bg-[var(--accent)] px-5 py-3 font-medium text-white hover:bg-[var(--accent-strong)]"
             >
-              Start 30-Day Trial
+              Start Free Trial
             </Link>
             <Link href="/login?fresh=1" className="rounded-xl border border-[#cfc7b3] px-5 py-3 text-[#25312b] hover:bg-[#f3efe3]">
-              Login
+              Sign in
             </Link>
           </div>
+          <p className="mt-3 text-xs text-[#6b7a71]">No setup consultant required. Account activation takes a few minutes.</p>
 
           <div className="mt-10 grid gap-3">
             {highlights.map((item) => (
@@ -62,6 +71,21 @@ export default function LandingPage() {
                 <span>{item}</span>
               </div>
             ))}
+          </div>
+
+          <div className="mt-8 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-[#ddd4bf] bg-[#fff] px-4 py-3">
+              <div className="text-xs font-semibold tracking-[0.08em] text-[#607067]">FOCUS</div>
+              <div className="mt-1 text-sm font-semibold">EU SME workflow</div>
+            </div>
+            <div className="rounded-xl border border-[#ddd4bf] bg-[#fff] px-4 py-3">
+              <div className="text-xs font-semibold tracking-[0.08em] text-[#607067]">COVERAGE</div>
+              <div className="mt-1 text-sm font-semibold">Country + NACE mapping</div>
+            </div>
+            <div className="rounded-xl border border-[#ddd4bf] bg-[#fff] px-4 py-3">
+              <div className="text-xs font-semibold tracking-[0.08em] text-[#607067]">OPERATIONS</div>
+              <div className="mt-1 text-sm font-semibold">Tasks, reminders, calendar</div>
+            </div>
           </div>
         </section>
 
@@ -76,18 +100,33 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
+
+          <div className="mt-6 rounded-2xl border border-[#d8cfbb] bg-white px-4 py-4">
+            <h3 className="text-sm font-semibold">Why teams pick Compliance Tracker</h3>
+            <ul className="mt-2 space-y-2 text-sm text-[#4c5f55]">
+              {trustSignals.map((item) => (
+                <li key={item} className="flex items-start gap-2">
+                  <span className="mt-0.5 text-[#1f8a62]">●</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
           <div className="mt-6 rounded-2xl bg-[#15372d] p-5 text-[#eef8f3]">
-            <div className="text-sm font-semibold">Start with sign up</div>
+            <div className="text-sm font-semibold">Ready to run your first compliance cycle?</div>
             <p className="mt-1 text-sm text-[#d5ece2]">
-              The first local flow we are enabling is account creation with Supabase email/password auth.
+              Create your account, complete onboarding, and start with your first prioritized task list today.
             </p>
             <Link
               href="/login?mode=signup"
               className="mt-4 inline-flex rounded-lg bg-[#8de1b8] px-4 py-2 text-sm font-medium text-[#103126]"
             >
-              Open sign up
+              Create account
             </Link>
           </div>
+
+          <p className="mt-4 text-xs text-[#6b7a71]">© {year} Compliance Tracker</p>
         </section>
       </div>
     </div>

@@ -16,15 +16,18 @@ const trustSignals = [
 const steps = [
   {
     title: "Onboard in minutes",
-    detail: "Select your country, NACE code, and company profile to generate your baseline obligations.",
+    detail:
+      "Select your country, NACE code, and company profile to generate your baseline obligations.",
   },
   {
     title: "Run compliance in one place",
-    detail: "Track status, owners, and due dates across dashboard, compliance, and historical views.",
+    detail:
+      "Track status, owners, and due dates across dashboard, compliance, and historical views.",
   },
   {
     title: "Stay continuously updated",
-    detail: "Rules and knowledge updates sync automatically so your team always works from current guidance.",
+    detail:
+      "Rules and knowledge updates sync automatically so your team always works from current guidance.",
   },
 ];
 
@@ -41,15 +44,19 @@ export default function LandingPage() {
             width={360}
             height={96}
             className="h-auto w-[220px] md:w-[320px]"
+            style={{ width: "auto", height: "auto" }}
             priority
           />
-          <div className="pill mt-4 inline-flex rounded-full px-3 py-1 text-xs">Built for EU SMEs</div>
+          <div className="pill mt-4 inline-flex rounded-full px-3 py-1 text-xs">
+            Built for EU SMEs
+          </div>
           <h1 className="mt-4 text-4xl font-bold leading-tight md:text-6xl">
             Compliance operations, without spreadsheet chaos.
           </h1>
           <p className="mt-5 max-w-2xl text-[#516058]">
-            Compliance Tracker turns country and NACE obligations into clear weekly execution,
-            so your team can act early, stay audit-ready, and avoid missed deadlines.
+            Compliance Tracker turns country and NACE obligations into clear
+            weekly execution, so your team can act early, stay audit-ready, and
+            avoid missed deadlines.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
@@ -58,15 +65,24 @@ export default function LandingPage() {
             >
               Start Free Trial
             </Link>
-            <Link href="/login?fresh=1" className="rounded-xl border border-[#cfc7b3] px-5 py-3 text-[#25312b] hover:bg-[#f3efe3]">
+            <Link
+              href="/login?fresh=1"
+              className="rounded-xl border border-[#cfc7b3] px-5 py-3 text-[#25312b] hover:bg-[#f3efe3]"
+            >
               Sign in
             </Link>
           </div>
-          <p className="mt-3 text-xs text-[#6b7a71]">No setup consultant required. Account activation takes a few minutes.</p>
+          <p className="mt-3 text-xs text-[#6b7a71]">
+            No setup consultant required. Account activation takes a few
+            minutes.
+          </p>
 
           <div className="mt-10 grid gap-3">
             {highlights.map((item) => (
-              <div key={item} className="flex items-start gap-3 rounded-xl bg-[#f7f3ea] px-4 py-3 text-sm text-[#415048]">
+              <div
+                key={item}
+                className="flex items-start gap-3 rounded-xl bg-[#f7f3ea] px-4 py-3 text-sm text-[#415048]"
+              >
                 <span className="mt-0.5 h-2.5 w-2.5 rounded-full bg-[var(--accent)]" />
                 <span>{item}</span>
               </div>
@@ -75,26 +91,43 @@ export default function LandingPage() {
 
           <div className="mt-8 grid gap-3 sm:grid-cols-3">
             <div className="rounded-xl border border-[#ddd4bf] bg-[#fff] px-4 py-3">
-              <div className="text-xs font-semibold tracking-[0.08em] text-[#607067]">FOCUS</div>
+              <div className="text-xs font-semibold tracking-[0.08em] text-[#607067]">
+                FOCUS
+              </div>
               <div className="mt-1 text-sm font-semibold">EU SME workflow</div>
             </div>
             <div className="rounded-xl border border-[#ddd4bf] bg-[#fff] px-4 py-3">
-              <div className="text-xs font-semibold tracking-[0.08em] text-[#607067]">COVERAGE</div>
-              <div className="mt-1 text-sm font-semibold">Country + NACE mapping</div>
+              <div className="text-xs font-semibold tracking-[0.08em] text-[#607067]">
+                COVERAGE
+              </div>
+              <div className="mt-1 text-sm font-semibold">
+                Country + NACE mapping
+              </div>
             </div>
             <div className="rounded-xl border border-[#ddd4bf] bg-[#fff] px-4 py-3">
-              <div className="text-xs font-semibold tracking-[0.08em] text-[#607067]">OPERATIONS</div>
-              <div className="mt-1 text-sm font-semibold">Tasks, reminders, calendar</div>
+              <div className="text-xs font-semibold tracking-[0.08em] text-[#607067]">
+                OPERATIONS
+              </div>
+              <div className="mt-1 text-sm font-semibold">
+                Tasks, reminders, calendar
+              </div>
             </div>
           </div>
         </section>
 
         <section className="rounded-3xl border border-[#d9d2bf] bg-[#fcfbf6] p-6 shadow-[0_14px_30px_rgba(29,42,36,0.08)] md:p-8">
-          <div className="pill inline-flex rounded-full px-3 py-1 text-xs">How it works</div>
+          <div className="pill inline-flex rounded-full px-3 py-1 text-xs">
+            How it works
+          </div>
           <div className="mt-5 space-y-4">
             {steps.map((step, index) => (
-              <div key={step.title} className="rounded-2xl border border-[#e1d9c7] bg-white px-4 py-4">
-                <div className="text-xs font-semibold tracking-[0.16em] text-[#0c7d58]">STEP 0{index + 1}</div>
+              <div
+                key={step.title}
+                className="rounded-2xl border border-[#e1d9c7] bg-white px-4 py-4"
+              >
+                <div className="text-xs font-semibold tracking-[0.16em] text-[#0c7d58]">
+                  STEP 0{index + 1}
+                </div>
                 <h2 className="mt-2 text-lg font-bold">{step.title}</h2>
                 <p className="mt-1 text-sm text-[#5a665f]">{step.detail}</p>
               </div>
@@ -102,7 +135,9 @@ export default function LandingPage() {
           </div>
 
           <div className="mt-6 rounded-2xl border border-[#d8cfbb] bg-white px-4 py-4">
-            <h3 className="text-sm font-semibold">Why teams pick Compliance Tracker</h3>
+            <h3 className="text-sm font-semibold">
+              Why teams pick Compliance Tracker
+            </h3>
             <ul className="mt-2 space-y-2 text-sm text-[#4c5f55]">
               {trustSignals.map((item) => (
                 <li key={item} className="flex items-start gap-2">
@@ -114,9 +149,12 @@ export default function LandingPage() {
           </div>
 
           <div className="mt-6 rounded-2xl bg-[#15372d] p-5 text-[#eef8f3]">
-            <div className="text-sm font-semibold">Ready to run your first compliance cycle?</div>
+            <div className="text-sm font-semibold">
+              Ready to run your first compliance cycle?
+            </div>
             <p className="mt-1 text-sm text-[#d5ece2]">
-              Create your account, complete onboarding, and start with your first prioritized task list today.
+              Create your account, complete onboarding, and start with your
+              first prioritized task list today.
             </p>
             <Link
               href="/login?mode=signup"
@@ -126,7 +164,9 @@ export default function LandingPage() {
             </Link>
           </div>
 
-          <p className="mt-4 text-xs text-[#6b7a71]">© {year} Compliance Tracker</p>
+          <p className="mt-4 text-xs text-[#6b7a71]">
+            © {year} Compliance Tracker
+          </p>
         </section>
       </div>
     </div>

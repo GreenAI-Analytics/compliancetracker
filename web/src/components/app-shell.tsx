@@ -22,6 +22,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               width={150}
               height={40}
               className="h-auto w-[150px]"
+              style={{ width: "auto", height: "auto" }}
               priority
             />
           </div>

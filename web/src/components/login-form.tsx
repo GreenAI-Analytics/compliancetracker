@@ -57,7 +57,9 @@ export function LoginForm() {
 
       const supabase = getSupabaseClient();
       if (!supabase) {
-        setMessage("Supabase public env values are not configured in web/.env.local");
+        setMessage(
+          "Supabase public env values are not configured in web/.env.local",
+        );
         return;
       }
 
@@ -94,14 +96,18 @@ export function LoginForm() {
           error?: string;
         };
 
-        if (!naceRes.ok) throw new Error(naceResult.error ?? "Failed to load NACE options");
-        if (!countriesRes.ok) throw new Error(countriesResult.error ?? "Failed to load countries");
+        if (!naceRes.ok)
+          throw new Error(naceResult.error ?? "Failed to load NACE options");
+        if (!countriesRes.ok)
+          throw new Error(countriesResult.error ?? "Failed to load countries");
 
         setSections(naceResult.sections ?? []);
         setNaceOptions(naceResult.naceOptions ?? []);
         setCountries(countriesResult.countries ?? []);
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : "Failed to load options");
+        setMessage(
+          error instanceof Error ? error.message : "Failed to load options",
+        );
       } finally {
         setOptionsLoading(false);
       }
@@ -112,7 +118,9 @@ export function LoginForm() {
     }
   }, [mode]);
 
-  const filteredNaceOptions = naceOptions.filter((item) => item.section === selectedSection);
+  const filteredNaceOptions = naceOptions.filter(
+    (item) => item.section === selectedSection,
+  );
 
   async function onSocialLogin(provider: "google" | "azure") {
     setLoading(true);
@@ -121,7 +129,9 @@ export function LoginForm() {
     try {
       const supabase = getSupabaseClient();
       if (!supabase) {
-        throw new Error("Supabase public env values are not configured in web/.env.local");
+        throw new Error(
+          "Supabase public env values are not configured in web/.env.local",
+        );
       }
 
       const origin = window.location.origin;
@@ -134,7 +144,9 @@ export function LoginForm() {
 
       if (error) throw error;
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Social login failed");
+      setMessage(
+        error instanceof Error ? error.message : "Social login failed",
+      );
       setLoading(false);
     }
   }
@@ -147,7 +159,9 @@ export function LoginForm() {
     try {
       const supabase = getSupabaseClient();
       if (!supabase) {
-        throw new Error("Supabase public env values are not configured in web/.env.local");
+        throw new Error(
+          "Supabase public env values are not configured in web/.env.local",
+        );
       }
 
       if (mode === "login") {
@@ -156,10 +170,11 @@ export function LoginForm() {
           throw new Error("Please enter your email and password");
         }
 
-        const { data: signInData, error } = await supabase.auth.signInWithPassword({
-          email: normalizedEmail,
-          password,
-        });
+        const { data: signInData, error } =
+          await supabase.auth.signInWithPassword({
+            email: normalizedEmail,
+            password,
+          });
         if (error) throw new Error("Invalid email or password");
 
         // Verify identity with Supabase Auth before redirecting.
@@ -167,7 +182,12 @@ export function LoginForm() {
           data: { user: verifiedUser },
           error: verifyError,
         } = await supabase.auth.getUser();
-        if (verifyError || !signInData.user || !signInData.session || !verifiedUser) {
+        if (
+          verifyError ||
+          !signInData.user ||
+          !signInData.session ||
+          !verifiedUser
+        ) {
           throw new Error("Authentication failed. Please try again.");
         }
 
@@ -187,10 +207,12 @@ export function LoginForm() {
           const normalizedCompanyName = companyName.trim();
           const normalizedCompanyAddress = companyAddress.trim();
 
-          if (!normalizedCompanyName) throw new Error("Please enter a company name");
+          if (!normalizedCompanyName)
+            throw new Error("Please enter a company name");
           if (!country) throw new Error("Please select a country");
           if (!selectedSection) throw new Error("Please select a NACE section");
-          if (!incorporationDate) throw new Error("Please select an incorporation date");
+          if (!incorporationDate)
+            throw new Error("Please select an incorporation date");
 
           const normalizedNaceCode = naceCode.trim();
           if (!/^[0-9]{2}$/.test(normalizedNaceCode)) {
@@ -212,7 +234,9 @@ export function LoginForm() {
           });
 
           if (!persistRes.ok) {
-            const persistErr = (await persistRes.json().catch(() => null)) as { error?: string } | null;
+            const persistErr = (await persistRes.json().catch(() => null)) as {
+              error?: string;
+            } | null;
             throw new Error(persistErr?.error ?? "Failed to complete signup.");
           }
 
@@ -224,10 +248,12 @@ export function LoginForm() {
         const normalizedCompanyName = companyName.trim();
         const normalizedCompanyAddress = companyAddress.trim();
 
-        if (!normalizedCompanyName) throw new Error("Please enter a company name");
+        if (!normalizedCompanyName)
+          throw new Error("Please enter a company name");
         if (!country) throw new Error("Please select a country");
         if (!selectedSection) throw new Error("Please select a NACE section");
-        if (!incorporationDate) throw new Error("Please select an incorporation date");
+        if (!incorporationDate)
+          throw new Error("Please select an incorporation date");
 
         const normalizedNaceCode = naceCode.trim();
         if (!/^[0-9]{2}$/.test(normalizedNaceCode)) {
@@ -273,11 +299,13 @@ export function LoginForm() {
         }
 
         setMessage(
-          "Account created! Check your email to confirm your address, then log in."
+          "Account created! Check your email to confirm your address, then log in.",
         );
       }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Authentication failed");
+      setMessage(
+        error instanceof Error ? error.message : "Authentication failed",
+      );
     } finally {
       setLoading(false);
     }
@@ -288,7 +316,9 @@ export function LoginForm() {
       <Link href="/" className="text-sm text-[#125f47] underline">
         Back to landing page
       </Link>
-      <h1 className="mt-3 text-2xl font-bold">{mode === "login" ? "Login" : "Create account"}</h1>
+      <h1 className="mt-3 text-2xl font-bold">
+        {mode === "login" ? "Login" : "Create account"}
+      </h1>
       <p className="mt-1 text-sm text-[#5d685f]">
         {mode === "login"
           ? "Sign in with email/password or social login."
@@ -349,13 +379,16 @@ export function LoginForm() {
                 className="mt-1 w-full rounded-lg border border-[#cfc6af] bg-white px-3 py-2"
               />
               <div className="mt-2 text-right">
-                <Link href="/reset-password" className="text-sm text-[#125f47] underline">
+                <Link
+                  href="/reset-password"
+                  className="text-sm text-[#125f47] underline"
+                >
                   Forgot password?
                 </Link>
               </div>
             </div>
           </>
-        ) : (
+        ) : oauthSignupMode ? (
           <div>
             <label className="text-sm">Email</label>
             <input
@@ -365,6 +398,30 @@ export function LoginForm() {
               className="mt-1 w-full rounded-lg border border-[#cfc6af] bg-[#f6f7f4] px-3 py-2 text-[#607067]"
             />
           </div>
+        ) : (
+          <>
+            <div>
+              <label className="text-sm">Email</label>
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                type="email"
+                required
+                className="mt-1 w-full rounded-lg border border-[#cfc6af] bg-white px-3 py-2"
+              />
+            </div>
+            <div>
+              <label className="text-sm">Password</label>
+              <input
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                type="password"
+                required
+                minLength={6}
+                className="mt-1 w-full rounded-lg border border-[#cfc6af] bg-white px-3 py-2"
+              />
+            </div>
+          </>
         )}
 
         {mode === "signup" && (
@@ -381,7 +438,10 @@ export function LoginForm() {
             </div>
 
             <div>
-              <label className="text-sm">Business address <span className="text-[#7b8880]">(optional)</span></label>
+              <label className="text-sm">
+                Business address{" "}
+                <span className="text-[#7b8880]">(optional)</span>
+              </label>
               <textarea
                 value={companyAddress}
                 onChange={(e) => setCompanyAddress(e.target.value)}
@@ -456,9 +516,13 @@ export function LoginForm() {
                   </option>
                 ))}
               </select>
-              {!optionsLoading && selectedSection && filteredNaceOptions.length === 0 && (
-                <p className="mt-1 text-xs text-[#8a4a32]">No NACE codes found for this section in current rules data.</p>
-              )}
+              {!optionsLoading &&
+                selectedSection &&
+                filteredNaceOptions.length === 0 && (
+                  <p className="mt-1 text-xs text-[#8a4a32]">
+                    No NACE codes found for this section in current rules data.
+                  </p>
+                )}
             </div>
           </>
         )}
@@ -476,7 +540,9 @@ export function LoginForm() {
         className="mt-4 text-sm text-[#125f47] underline"
         onClick={() => setMode(mode === "login" ? "signup" : "login")}
       >
-        {mode === "login" ? "Need an account? Sign up" : "Already have an account? Login"}
+        {mode === "login"
+          ? "Need an account? Sign up"
+          : "Already have an account? Login"}
       </button>
     </div>
   );

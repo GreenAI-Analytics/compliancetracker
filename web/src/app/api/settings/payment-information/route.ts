@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { validateCsrfToken, setCsrfCookie } from "@/lib/csrf";
+import { rateLimitMiddleware } from "@/lib/rate-limit";
+import { parseBody } from "@/lib/body-limit";
 
 type Body = {
   billingContactName?: string | null;
@@ -11,7 +14,12 @@ type Body = {
   paymentMethod?: string | null;
 };
 
-const ALLOWED_PAYMENT_METHODS = new Set(["card", "bank_transfer", "invoice", "other"]);
+const ALLOWED_PAYMENT_METHODS = new Set([
+  "card",
+  "bank_transfer",
+  "invoice",
+  "other",
+]);
 
 function normalizeOptional(value: unknown, maxLen: number): string | null {
   if (typeof value !== "string") return null;
@@ -32,13 +40,45 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const response = NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 },
+    );
+    setCsrfCookie(response);
+    return response;
   }
 
-  const body = (await request.json().catch(() => null)) as Body | null;
-  if (!body) {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  // CSRF validation
+  const csrf = validateCsrfToken(request);
+  if (!csrf.valid) {
+    const response = NextResponse.json({ error: csrf.error }, { status: 403 });
+    setCsrfCookie(response);
+    return response;
   }
+
+  // Rate limiting
+  const rateCheck = rateLimitMiddleware(user.id);
+  if (!rateCheck.allowed) {
+    const response = NextResponse.json(
+      { error: "Too many requests" },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rateCheck.retryAfterSeconds) },
+      },
+    );
+    return response;
+  }
+
+  const parsed = await parseBody<Body>(request);
+  if (parsed.error) {
+    const response = NextResponse.json(
+      { error: parsed.error },
+      { status: parsed.status ?? 400 },
+    );
+    setCsrfCookie(response);
+    return response;
+  }
+  const body = parsed.data!;
 
   const billingContactName = normalizeOptional(body.billingContactName, 255);
   const billingEmail = normalizeOptional(body.billingEmail, 255);
@@ -48,19 +88,35 @@ export async function POST(request: NextRequest) {
   const paymentMethod = normalizeOptional(body.paymentMethod, 50);
 
   if (billingEmail && !isValidEmail(billingEmail)) {
-    return NextResponse.json({ error: "Please enter a valid billing email address." }, { status: 400 });
+    const response = NextResponse.json(
+      { error: "Please enter a valid billing email address." },
+      { status: 400 },
+    );
+    setCsrfCookie(response);
+    return response;
   }
 
   if (paymentMethod && !ALLOWED_PAYMENT_METHODS.has(paymentMethod)) {
-    return NextResponse.json(
-      { error: "paymentMethod must be one of: card, bank_transfer, invoice, other" },
-      { status: 400 }
+    const response = NextResponse.json(
+      {
+        error:
+          "paymentMethod must be one of: card, bank_transfer, invoice, other",
+      },
+      { status: 400 },
     );
+    setCsrfCookie(response);
+    return response;
   }
 
+  // TODO: Switch to server client (createSupabaseServerClient) after RLS policies are in place
   const admin = getSupabaseAdminClient();
   if (!admin) {
-    return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+    const response = NextResponse.json(
+      { error: "Server configuration error" },
+      { status: 500 },
+    );
+    setCsrfCookie(response);
+    return response;
   }
 
   const { data: profile, error: profileError } = await admin
@@ -70,7 +126,16 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (profileError || !profile?.organization_id) {
-    return NextResponse.json({ error: "Organization profile not found" }, { status: 404 });
+    console.error("Payment information: organization profile lookup failed", {
+      userId: user.id,
+      error: profileError?.message,
+    });
+    const response = NextResponse.json(
+      { error: "Organization profile not found" },
+      { status: 404 },
+    );
+    setCsrfCookie(response);
+    return response;
   }
 
   const { error: updateError } = await admin
@@ -87,8 +152,19 @@ export async function POST(request: NextRequest) {
     .eq("id", profile.organization_id);
 
   if (updateError) {
-    return NextResponse.json({ error: updateError.message }, { status: 500 });
+    console.error("Payment information: organization update failed", {
+      organizationId: profile.organization_id,
+      error: updateError.message,
+    });
+    const response = NextResponse.json(
+      { error: "Database error" },
+      { status: 500 },
+    );
+    setCsrfCookie(response);
+    return response;
   }
 
-  return NextResponse.json({ ok: true });
+  const response = NextResponse.json({ ok: true });
+  setCsrfCookie(response);
+  return response;
 }

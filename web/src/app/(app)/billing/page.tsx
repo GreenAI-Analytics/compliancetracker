@@ -29,6 +29,15 @@ export default async function BillingPage() {
 
   if (!user) redirect("/login");
 
+  // Redirect to dashboard if admin has hidden billing
+  const queryClient = adminSupabase ?? supabase;
+  const { data: billingHiddenRow } = await queryClient
+    .from("admin_settings")
+    .select("value")
+    .eq("key", "billing_hidden")
+    .maybeSingle();
+  if (billingHiddenRow?.value === "true") redirect("/dashboard");
+
   const profileRes = await supabase
     .from("onboarding_profiles")
     .select("signup_date, trial_ends_at, organization_id")
@@ -45,7 +54,9 @@ export default async function BillingPage() {
     profile?.organization_id
       ? (adminSupabase ?? supabase)
           .from("organizations")
-          .select("name, is_sponsored, sponsored_reason, billing_contact_name, billing_email, billing_address, vat_number, purchase_order_ref, payment_method, stripe_customer_id, stripe_subscription_status")
+          .select(
+            "name, is_sponsored, sponsored_reason, billing_contact_name, billing_email, billing_address, vat_number, purchase_order_ref, payment_method, stripe_customer_id, stripe_subscription_status",
+          )
           .eq("id", profile.organization_id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
@@ -54,50 +65,66 @@ export default async function BillingPage() {
 
   const settingMap = new Map(settings.map((row) => [row.key, row.value]));
   const monthlyPrice =
-    settingMap.get(PRICE_KEY) ?? settingMap.get(LEGACY_PRICE_KEY) ?? DEFAULT_PRICE_EUR;
+    settingMap.get(PRICE_KEY) ??
+    settingMap.get(LEGACY_PRICE_KEY) ??
+    DEFAULT_PRICE_EUR;
 
-  const org = orgRes.data as
-    | {
-        name?: string;
-        is_sponsored?: boolean;
-        sponsored_reason?: string | null;
-        billing_contact_name?: string | null;
-        billing_email?: string | null;
-        billing_address?: string | null;
-        vat_number?: string | null;
-        purchase_order_ref?: string | null;
-        payment_method?: "card" | "bank_transfer" | "invoice" | "other" | null;
-        stripe_customer_id?: string | null;
-        stripe_subscription_status?: string | null;
-      }
-    | null;
+  const org = orgRes.data as {
+    name?: string;
+    is_sponsored?: boolean;
+    sponsored_reason?: string | null;
+    billing_contact_name?: string | null;
+    billing_email?: string | null;
+    billing_address?: string | null;
+    vat_number?: string | null;
+    purchase_order_ref?: string | null;
+    payment_method?: "card" | "bank_transfer" | "invoice" | "other" | null;
+    stripe_customer_id?: string | null;
+    stripe_subscription_status?: string | null;
+  } | null;
   const isSponsored = Boolean(org?.is_sponsored);
 
-  const signupDate = profile?.signup_date ? new Date(profile.signup_date) : null;
-  const trialEndsAt = profile?.trial_ends_at ? new Date(profile.trial_ends_at) : null;
+  const signupDate = profile?.signup_date
+    ? new Date(profile.signup_date)
+    : null;
+  const trialEndsAt = profile?.trial_ends_at
+    ? new Date(profile.trial_ends_at)
+    : null;
   const now = new Date();
 
   const trialDaysLeft = trialEndsAt
-    ? Math.max(0, Math.ceil((trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
+    ? Math.max(
+        0,
+        Math.ceil(
+          (trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+        ),
+      )
     : null;
   const trialExpired = trialDaysLeft === 0;
 
   return (
     <div>
       <h1 className="text-3xl font-bold">Subscription & Billing</h1>
-      <p className="mt-2 text-[#5a675e]">Your billing status, pricing, and trial details.</p>
+      <p className="mt-2 text-[#5a675e]">
+        Your billing status, pricing, and trial details.
+      </p>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-[#d7e5da] bg-white p-4 text-sm text-[#57645c]">
           <p className="font-medium text-[#243229]">Plan</p>
           {isSponsored ? (
             <>
-              <p className="mt-2 text-base font-semibold text-[#2e7d32]">Sponsored account</p>
+              <p className="mt-2 text-base font-semibold text-[#2e7d32]">
+                Sponsored account
+              </p>
               <p className="mt-1">
-                Your organisation is sponsored and is not billed monthly at this time.
+                Your organisation is sponsored and is not billed monthly at this
+                time.
               </p>
               {org?.sponsored_reason && (
-                <p className="mt-1 text-xs text-[#5f7668]">Reason: {org.sponsored_reason}</p>
+                <p className="mt-1 text-xs text-[#5f7668]">
+                  Reason: {org.sponsored_reason}
+                </p>
               )}
             </>
           ) : (
@@ -105,7 +132,9 @@ export default async function BillingPage() {
               <p className="mt-2 text-base font-semibold text-[#1f3428]">
                 {formatEuro(monthlyPrice)} / month
               </p>
-              <p className="mt-1 text-xs text-[#5f7668]">Global price set by your administrator.</p>
+              <p className="mt-1 text-xs text-[#5f7668]">
+                Global price set by your administrator.
+              </p>
             </>
           )}
         </div>
@@ -114,20 +143,32 @@ export default async function BillingPage() {
           {isSponsored ? (
             <>
               <p className="font-medium text-[#243229]">Billing Status</p>
-              <p className="mt-2 text-base font-semibold text-[#2e7d32]">Sponsored</p>
-              <p className="mt-1">Trial and recurring billing are disabled for this account.</p>
+              <p className="mt-2 text-base font-semibold text-[#2e7d32]">
+                Sponsored
+              </p>
+              <p className="mt-1">
+                Trial and recurring billing are disabled for this account.
+              </p>
             </>
           ) : (
             <>
               <p className="font-medium text-[#243229]">Trial</p>
               <p className="mt-1">
-                Signup date: {signupDate ? signupDate.toLocaleDateString("en-IE") : "Not available"}
+                Signup date:{" "}
+                {signupDate
+                  ? signupDate.toLocaleDateString("en-IE")
+                  : "Not available"}
               </p>
               <p>
-                Trial ends: {trialEndsAt ? trialEndsAt.toLocaleDateString("en-IE") : "Not available"}
+                Trial ends:{" "}
+                {trialEndsAt
+                  ? trialEndsAt.toLocaleDateString("en-IE")
+                  : "Not available"}
               </p>
               {trialDaysLeft !== null && (
-                <p className={`mt-2 font-medium ${trialExpired ? "text-[#9f4b2a]" : "text-[#2e7d32]"}`}>
+                <p
+                  className={`mt-2 font-medium ${trialExpired ? "text-[#9f4b2a]" : "text-[#2e7d32]"}`}
+                >
                   {trialExpired
                     ? "Trial expired"
                     : `${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left`}
@@ -150,9 +191,12 @@ export default async function BillingPage() {
       />
 
       <section className="mt-6 rounded-xl border border-[#d7e5da] bg-white p-5">
-        <h2 className="text-lg font-semibold text-[#1a2e22]">Payment Information</h2>
+        <h2 className="text-lg font-semibold text-[#1a2e22]">
+          Payment Information
+        </h2>
         <p className="mt-1 text-sm text-[#5f7668]">
-          Manage the billing contact details used for invoices and payment follow-up.
+          Manage the billing contact details used for invoices and payment
+          follow-up.
         </p>
         <PaymentInformationForm
           initialValue={{

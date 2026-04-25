@@ -63,7 +63,7 @@ export default function LandingPage() {
               href="/login?mode=signup"
               className="rounded-xl bg-[var(--accent)] px-5 py-3 font-medium text-white hover:bg-[var(--accent-strong)]"
             >
-              Start Free Trial
+              Sign Up
             </Link>
             <Link
               href="/login?fresh=1"

@@ -21,3 +21,11 @@ Thumbs.db
 
 # Supabase local metadata
 supabase/.temp/
+
+# Editor directories
+.vscode/
+.zed/
+
+# Data files (reference copies)
+*.csv
+nace-codes.txt

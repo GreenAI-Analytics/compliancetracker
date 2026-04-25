@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const COUNTRY_NAMES: Record<string, string> = {
   AT: "Austria",
@@ -35,10 +35,7 @@ const COUNTRY_NAMES: Record<string, string> = {
 };
 
 export async function GET() {
-  const supabase = getSupabaseAdminClient();
-  if (!supabase) {
-    return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
-  }
+  const supabase = await createSupabaseServerClient();
 
   const { data, error } = await supabase
     .from("rules")
@@ -46,7 +43,10 @@ export async function GET() {
     .order("country");
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to load countries" },
+      { status: 500 },
+    );
   }
 
   const uniqueCodes = [

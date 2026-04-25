@@ -90,6 +90,11 @@ insert into admin_settings (key, value)
 values ('billing_monthly_price_eur', '9.99')
 on conflict (key) do nothing;
 
+-- Seed default billing visibility (false = show billing to users)
+insert into admin_settings (key, value)
+values ('billing_hidden', 'false')
+on conflict (key) do nothing;
+
 -- Sponsored organisations (not billed)
 alter table if exists organizations
   add column if not exists is_sponsored boolean not null default false;

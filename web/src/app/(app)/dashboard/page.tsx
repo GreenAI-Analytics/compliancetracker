@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { TaskList } from "@/components/task-list";
 import { ComplianceCalendar } from "@/components/compliance-calendar";
 import { LogoutButton } from "@/components/logout-button";
+import { checkRulesAvailable } from "@/lib/rules-check";
+import NoRulesBanner from "@/app/(app)/dashboard/no-rules-banner";
 import Link from "next/link";
 
 type OnboardingProfile = {
@@ -108,6 +110,7 @@ async function getDashboardData(userId: string) {
       categories: [],
       customTasks: [],
       calendarTasks: [],
+      rulesAvailable: true,
     };
   }
 
@@ -131,7 +134,7 @@ async function getDashboardData(userId: string) {
       `id, due_date, status, priority,
        tasks(id, task_id, title_key, summary_key, frequency, law_ref, regulator, rrule, due_rule, weekend_policy, evidence_required,
          categories(id, category_id, name, display_order)
-       )`
+       )`,
     )
     .eq("user_id", userId)
     .order("due_date", { ascending: true });
@@ -144,7 +147,7 @@ async function getDashboardData(userId: string) {
         userId,
         profile.organization_id,
         profile.country,
-        profile.nace
+        profile.nace,
       );
 
       const { data: seededInstances } = await queryClient
@@ -153,13 +156,24 @@ async function getDashboardData(userId: string) {
           `id, due_date, status, priority,
            tasks(id, task_id, title_key, summary_key, frequency, law_ref, regulator, rrule, due_rule, weekend_policy, evidence_required,
              categories(id, category_id, name, display_order)
-           )`
+           )`,
         )
         .eq("user_id", userId)
         .order("due_date", { ascending: true });
 
       instances = seededInstances;
     }
+  }
+
+  // If still no instances, check whether rules exist for this country/NACE
+  let rulesAvailable = true;
+  if ((instances?.length ?? 0) === 0) {
+    const check = await checkRulesAvailable(
+      queryClient,
+      profile.country,
+      profile.nace,
+    );
+    rulesAvailable = check.available;
   }
 
   const rows = (instances ?? []) as unknown as TaskRow[];
@@ -179,7 +193,10 @@ async function getDashboardData(userId: string) {
   });
 
   // Group current/future tasks by category for the Tasks section
-  const categoryMap = new Map<string, { name: string; order: number; tasks: TaskRow[] }>();
+  const categoryMap = new Map<
+    string,
+    { name: string; order: number; tasks: TaskRow[] }
+  >();
   for (const row of currentTasks) {
     const cat = row.tasks?.categories;
     const catId = cat?.id ?? "uncategorised";
@@ -202,7 +219,7 @@ async function getDashboardData(userId: string) {
   const total = visibleRows.length;
   const completed = visibleRows.filter((i) => i.status === "completed").length;
   const overdue = visibleRows.filter(
-    (i) => i.status !== "completed" && new Date(i.due_date) < today
+    (i) => i.status !== "completed" && new Date(i.due_date) < today,
   ).length;
   const dueSoon = visibleRows.filter((i) => {
     const d = new Date(i.due_date);
@@ -242,7 +259,10 @@ async function getDashboardData(userId: string) {
         due_date: row.due_date,
         status: row.status,
         isRecurring: parseIsRecurring(row.details),
-        recurringInterval: parseDetailsField<string>(row.details, "recurringInterval"),
+        recurringInterval: parseDetailsField<string>(
+          row.details,
+          "recurringInterval",
+        ),
         priority: parseDetailsField<string>(row.details, "priority"),
       }))
       .filter((task) => {
@@ -269,6 +289,7 @@ async function getDashboardData(userId: string) {
     categories,
     customTasks,
     calendarTasks,
+    rulesAvailable,
   };
 }
 
@@ -283,6 +304,7 @@ export default async function DashboardPage() {
   const {
     profile,
     stats,
+    rulesAvailable,
     upcoming,
     priorityTasks,
     categories,
@@ -304,13 +326,47 @@ export default async function DashboardPage() {
     );
   }
 
+  // Show a banner if no compliance rules have been synced yet
+  if (profile && !rulesAvailable) {
+    return (
+      <div>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Dashboard</h1>
+            <p className="mt-1 text-[#486255]">
+              {profile.company_name} &middot; {profile.country} &middot; NACE{" "}
+              {profile.nace}
+            </p>
+          </div>
+          <div className="min-w-[120px] rounded-lg border border-[#d7e5da] bg-white">
+            <LogoutButton />
+          </div>
+        </div>
+        <div className="mt-6">
+          <NoRulesBanner />
+        </div>
+      </div>
+    );
+  }
+
   const today = new Date();
   const year = today.getFullYear();
   const monthIndex = today.getMonth();
 
-  const quarterLabel = ["Q1", "Q1", "Q1", "Q2", "Q2", "Q2", "Q3", "Q3", "Q3", "Q4", "Q4", "Q4"][
-    today.getMonth()
-  ];
+  const quarterLabel = [
+    "Q1",
+    "Q1",
+    "Q1",
+    "Q2",
+    "Q2",
+    "Q2",
+    "Q3",
+    "Q3",
+    "Q3",
+    "Q4",
+    "Q4",
+    "Q4",
+  ][today.getMonth()];
 
   return (
     <div>
@@ -318,7 +374,8 @@ export default async function DashboardPage() {
         <div>
           <h1 className="text-3xl font-bold">Dashboard</h1>
           <p className="mt-1 text-[#486255]">
-            {profile.company_name} &middot; {profile.country} &middot; NACE {profile.nace}
+            {profile.company_name} &middot; {profile.country} &middot; NACE{" "}
+            {profile.nace}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -336,7 +393,9 @@ export default async function DashboardPage() {
       <div className="mt-6 grid gap-4 md:grid-cols-2">
         {/* Health Score */}
         <section className="rounded-xl border border-[#d7e5da] bg-white p-5">
-          <h2 className="text-sm font-semibold text-[#3e5c4b]">Compliance Health Score</h2>
+          <h2 className="text-sm font-semibold text-[#3e5c4b]">
+            Compliance Health Score
+          </h2>
           <p className="mt-2 text-4xl font-bold text-[var(--accent)]">
             {stats ? `${stats.healthScore}%` : "—"}
           </p>
@@ -357,7 +416,9 @@ export default async function DashboardPage() {
 
         {/* Priority Tasks */}
         <section className="rounded-xl border border-[#d7e5da] bg-white p-5">
-          <h2 className="text-sm font-semibold text-[#3e5c4b]">Priority Tasks</h2>
+          <h2 className="text-sm font-semibold text-[#3e5c4b]">
+            Priority Tasks
+          </h2>
           <p className="mt-2 text-4xl font-bold">
             {stats ? stats.overdue + stats.dueSoon : "—"}
           </p>
@@ -374,9 +435,14 @@ export default async function DashboardPage() {
           {priorityTasks.length > 0 ? (
             <ul className="mt-3 space-y-1">
               {priorityTasks.map((inst) => (
-                <li key={inst.id} className="flex items-center justify-between text-sm">
+                <li
+                  key={inst.id}
+                  className="flex items-center justify-between text-sm"
+                >
                   <span className="truncate text-[#3b4a3f]">
-                    {formatTaskTitle(inst.tasks?.title_key ?? inst.tasks?.task_id ?? "Task")}
+                    {formatTaskTitle(
+                      inst.tasks?.title_key ?? inst.tasks?.task_id ?? "Task",
+                    )}
                   </span>
                   <span className="ml-2 shrink-0 text-xs text-[#7a8880]">
                     {formatDate(inst.due_date)}
@@ -385,20 +451,29 @@ export default async function DashboardPage() {
               ))}
             </ul>
           ) : (
-            <p className="mt-3 text-sm text-[#6b8073]">No overdue or due-soon tasks right now.</p>
+            <p className="mt-3 text-sm text-[#6b8073]">
+              No overdue or due-soon tasks right now.
+            </p>
           )}
         </section>
 
         {/* Upcoming Requirements */}
         <section className="rounded-xl border border-[#d7e5da] bg-white p-5">
-          <h2 className="text-sm font-semibold text-[#3e5c4b]">Upcoming Requirements</h2>
+          <h2 className="text-sm font-semibold text-[#3e5c4b]">
+            Upcoming Requirements
+          </h2>
           <p className="mt-2 text-2xl font-bold">{quarterLabel} highlights</p>
           {upcoming.length > 0 ? (
             <ul className="mt-2 space-y-1">
               {upcoming.slice(0, 4).map((inst) => (
-                <li key={inst.id} className="flex items-center justify-between text-sm">
+                <li
+                  key={inst.id}
+                  className="flex items-center justify-between text-sm"
+                >
                   <span className="truncate text-[#3b4a3f]">
-                    {formatTaskTitle(inst.tasks?.title_key ?? inst.tasks?.task_id ?? "Task")}
+                    {formatTaskTitle(
+                      inst.tasks?.title_key ?? inst.tasks?.task_id ?? "Task",
+                    )}
                   </span>
                   <span className="ml-2 shrink-0 text-xs text-[#7a8880]">
                     {formatDate(inst.due_date)}
@@ -407,7 +482,9 @@ export default async function DashboardPage() {
               ))}
             </ul>
           ) : (
-            <p className="mt-2 text-sm text-[#6b8073]">No upcoming deadlines in 6 months.</p>
+            <p className="mt-2 text-sm text-[#6b8073]">
+              No upcoming deadlines in 6 months.
+            </p>
           )}
         </section>
 
@@ -445,29 +522,47 @@ export default async function DashboardPage() {
           <div className="mt-4 space-y-6">
             {customTasks.length > 0 && (
               <section>
-                <h3 className="mb-3 text-lg font-semibold text-[#1a2e22]">Private Tasks</h3>
+                <h3 className="mb-3 text-lg font-semibold text-[#1a2e22]">
+                  Private Tasks
+                </h3>
                 <div className="divide-y divide-[#e5eee7] rounded-xl border border-[#d7e5da] bg-white">
                   {customTasks.map((task) => (
-                    <div key={task.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                    <div
+                      key={task.id}
+                      className="flex items-center justify-between gap-3 px-4 py-3"
+                    >
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-[#173224]">{task.title}</p>
+                        <p className="truncate text-sm font-medium text-[#173224]">
+                          {task.title}
+                        </p>
                         <p className="mt-0.5 text-xs text-[#5f7668]">
-                          {task.due_date ? `Due ${formatDate(task.due_date)}` : "No due date"}
+                          {task.due_date
+                            ? `Due ${formatDate(task.due_date)}`
+                            : "No due date"}
                         </p>
                       </div>
                       <div className="flex shrink-0 flex-wrap items-center gap-1.5">
                         {task.priority === "high" && (
-                          <span className="rounded-full border border-[#f5b8b0] bg-[#fde8e4] px-2 py-0.5 text-[11px] font-medium text-[#9f3a2a]">High</span>
+                          <span className="rounded-full border border-[#f5b8b0] bg-[#fde8e4] px-2 py-0.5 text-[11px] font-medium text-[#9f3a2a]">
+                            High
+                          </span>
                         )}
                         {task.priority === "medium" && (
-                          <span className="rounded-full border border-[#f5d9a0] bg-[#fff4e0] px-2 py-0.5 text-[11px] font-medium text-[#8a6200]">Medium</span>
+                          <span className="rounded-full border border-[#f5d9a0] bg-[#fff4e0] px-2 py-0.5 text-[11px] font-medium text-[#8a6200]">
+                            Medium
+                          </span>
                         )}
                         {task.priority === "low" && (
-                          <span className="rounded-full border border-[#d7e5da] bg-[#f3f8f4] px-2 py-0.5 text-[11px] font-medium text-[#355143]">Low</span>
+                          <span className="rounded-full border border-[#d7e5da] bg-[#f3f8f4] px-2 py-0.5 text-[11px] font-medium text-[#355143]">
+                            Low
+                          </span>
                         )}
                         <span className="rounded-full border border-[#d7e5da] bg-[#f3f8f4] px-2 py-0.5 text-[11px] font-medium text-[#355143]">
                           {task.isRecurring
-                            ? (task.recurringInterval ? INTERVAL_LABEL[task.recurringInterval] ?? "Recurring" : "Recurring")
+                            ? task.recurringInterval
+                              ? (INTERVAL_LABEL[task.recurringInterval] ??
+                                "Recurring")
+                              : "Recurring"
                             : "One-time"}
                         </span>
                       </div>
@@ -478,7 +573,9 @@ export default async function DashboardPage() {
             )}
             {categories.map((cat) => (
               <section key={cat.id}>
-                <h3 className="mb-3 text-lg font-semibold text-[#1a2e22]">{cat.name}</h3>
+                <h3 className="mb-3 text-lg font-semibold text-[#1a2e22]">
+                  {cat.name}
+                </h3>
                 <TaskList instanceUserId={user.id} tasks={cat.tasks} />
               </section>
             ))}
@@ -494,9 +591,7 @@ function formatTaskTitle(key: string): string {
   const last = parts[parts.length - 1];
   const prev = parts.length > 1 ? parts[parts.length - 2] : last;
   const slug = last === "title" ? prev : last;
-  return slug
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return slug.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function formatDate(dateStr: string): string {

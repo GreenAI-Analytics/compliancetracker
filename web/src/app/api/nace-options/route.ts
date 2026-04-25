@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getNaceSectionCode, NACE_SECTIONS } from "@/lib/nace-sections";
 import { NACE_TWO_DIGIT_DESCRIPTIONS } from "@/lib/nace-two-digit-descriptions";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type NaceOption = {
   code: string;
@@ -10,18 +10,18 @@ type NaceOption = {
 };
 
 export async function GET() {
-  const supabaseAdmin = getSupabaseAdminClient();
-  if (!supabaseAdmin) {
-    return NextResponse.json(
-      { error: "Server configuration is missing SUPABASE_SERVICE_ROLE_KEY" },
-      { status: 500 },
-    );
-  }
+  const supabase = await createSupabaseServerClient();
 
-  const { data, error } = await supabaseAdmin.from("rules").select("nace").limit(5000);
+  const { data, error } = await supabase
+    .from("rules")
+    .select("nace")
+    .limit(5000);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to load NACE options" },
+      { status: 500 },
+    );
   }
 
   const uniqueCodes = new Set<string>();
@@ -41,8 +41,12 @@ export async function GET() {
       description: NACE_TWO_DIGIT_DESCRIPTIONS[code] ?? `NACE division ${code}`,
     }));
 
-  const usedSections = new Set(naceOptions.map((option) => option.section).filter((x) => x));
-  const sections = NACE_SECTIONS.filter((section) => usedSections.has(section.code)).map((section) => ({
+  const usedSections = new Set(
+    naceOptions.map((option) => option.section).filter((x) => x),
+  );
+  const sections = NACE_SECTIONS.filter((section) =>
+    usedSections.has(section.code),
+  ).map((section) => ({
     code: section.code,
     name: section.name,
   }));

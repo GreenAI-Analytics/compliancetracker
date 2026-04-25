@@ -82,7 +82,8 @@ compliancetracker/
 │   │       └── nace-two-digit-descriptions.ts
 │   └── tests/e2e/                    # Playwright tests
 ├── supabase/
-│   ├── supabase_schema.sql           # Base schema (rules, categories, tasks, orgs, users, instances, etc.)
+├── supabase_schema.sql               # Base schema (rules, categories, tasks, orgs, users, instances, etc.)
+├── supabase/
 │   ├── v1-app-schema.sql             # V1 tables (onboarding_profiles, custom_tasks, hidden_items, admin_settings, etc.)
 │   ├── config.toml                   # Edge function config (verify_jwt = false)
 │   ├── functions/
@@ -153,6 +154,8 @@ Deploy: `supabase functions deploy <function-name>` (all have `verify_jwt = fals
 - Requires `APP_ADMIN_EMAIL`, `APP_ADMIN_PASSWORD`, `APP_ADMIN_SESSION_SECRET` env vars
 - 6 tabs: Stats, Organisations, Billing, Reminder, Data Sync, Articles
 - Can extend trials, mark orgs as sponsored, set billing price, trigger edge functions, toggle article visibility
+- **Hide Billing toggle** in the Billing tab — when ON: billing sidebar link and `/billing` page are hidden from all users, and all active trials are ended immediately. New signups are automatically marked as sponsored.
+
 
 ## Next.js 16 Notes
 
@@ -193,14 +196,30 @@ REMINDER_FROM_EMAIL=reminders@example.com
 - Playwright E2E test infrastructure
 - Favicon, environment example file
 - Vercel project configuration
+- **Production hardening audit** — see findings below
+
+### Production Hardening (April 2026)
+- **Made `complete-signup` idempotent** — checks for existing onboarding profile before creating org/user/profile; returns early if already exists
+- **Added `/api/health` endpoint** — returns status, environment, and configuration checks for monitoring
+- **Switched public routes to server client** — `/api/countries` and `/api/nace-options` now use `createSupabaseServerClient()` instead of the service-role admin client
+- **Sanitized error messages** — database errors no longer leak to users in countries, nace-options, and task-instances routes
+- **Added root-level `.env.example`** — documents all required environment variables for Supabase CLI and edge functions
+- **Fixed `supabase_schema.sql` path** — corrected in AGENTS.md file tree (was incorrectly listed inside `supabase/` directory)
+- **Added `Hide Billing` feature** — admin Billing tab has a toggle to hide billing from users, end active trials, and mark new signups as sponsored
 
 ### Known Gaps / Immediate Priorities
-1. `complete-signup` route is **not idempotent** for repeated OAuth callbacks — can create duplicate records
+1. ~~`complete-signup` route is **not idempotent** — can create duplicate records~~ ✅ Fixed
 2. No UX guard to redirect already-onboarded OAuth users to dashboard
 3. Full social signup E2E validation not done (requires Supabase OAuth providers enabled)
 4. Billing payment-information API integration tests incomplete
 5. No i18n implementation plan
 6. Task seeding requires rules to be synced first — if `sync-compliance-rules` hasn't run, zero tasks are seeded
+7. **No RLS policies** on core tables — all queries use the service_role key; Supabase anon key is underutilised
+8. **Onboarding page is a scaffold** — `/onboarding` shows placeholders with no form logic
+9. **No evidence upload** — tasks have `evidence_required` flag but upload UI and API are not implemented
+10. **No CSRF protection** — relies entirely on `SameSite=Lax` cookies
+11. **No request size limits** on API routes that accept payloads
+12. **No Sentry/error monitoring** — all production errors would be silent
 
 ## Testing
 

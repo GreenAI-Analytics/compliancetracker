@@ -10,7 +10,17 @@ const nav = [
   { href: "/billing", label: "Billing" },
 ];
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  billingHidden = false,
+}: {
+  children: React.ReactNode;
+  billingHidden?: boolean;
+}) {
+  const visibleNav = billingHidden
+    ? nav.filter((item) => item.href !== "/billing")
+    : nav;
+
   return (
     <div className="min-h-screen">
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 px-4 py-4 md:grid-cols-[220px_1fr]">
@@ -28,7 +38,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <p className="mt-2 text-sm text-[#5a665f]">EU SME Compliance</p>
           <nav className="mt-6 flex flex-col gap-2">
-            {nav.map((item) => (
+            {visibleNav.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}

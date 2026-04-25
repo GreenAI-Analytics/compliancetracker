@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type Stat = {
   totalOrgs: number;
@@ -39,7 +39,15 @@ type Article = {
   last_updated: string | null;
 };
 
-function StatCard({ label, value, sub }: { label: string; value: number | string; sub?: string }) {
+function StatCard({
+  label,
+  value,
+  sub,
+}: {
+  label: string;
+  value: number | string;
+  sub?: string;
+}) {
   return (
     <div className="rounded-xl border border-[#d7e5da] bg-white p-4">
       <div className="text-2xl font-bold text-[#1a2e22]">{value}</div>
@@ -90,10 +98,16 @@ function StatsPanel() {
             <StatCard label="Expired Trials" value={stats.expiredTrials} />
             <StatCard label="Signups (30d)" value={stats.signupsLast30Days} />
           </div>
-          <StatCard label="Active Articles" value={stats.activeArticles} sub="Knowledge hub" />
+          <StatCard
+            label="Active Articles"
+            value={stats.activeArticles}
+            sub="Knowledge hub"
+          />
           {stats.byCountry.length > 0 && (
             <div className="rounded-xl border border-[#d7e5da] bg-white p-4">
-              <div className="mb-2 text-sm font-semibold text-[#1a2e22]">Orgs by Country</div>
+              <div className="mb-2 text-sm font-semibold text-[#1a2e22]">
+                Orgs by Country
+              </div>
               <div className="flex flex-wrap gap-2">
                 {stats.byCountry.map((c) => (
                   <span
@@ -118,7 +132,9 @@ function OrgsPanel() {
   const [error, setError] = useState("");
   const [working, setWorking] = useState<string | null>(null);
   const [extendDays, setExtendDays] = useState<Record<string, string>>({});
-  const [sponsorReason, setSponsorReason] = useState<Record<string, string>>({});
+  const [sponsorReason, setSponsorReason] = useState<Record<string, string>>(
+    {},
+  );
 
   async function load() {
     setLoading(true);
@@ -157,9 +173,9 @@ function OrgsPanel() {
                     trialActive: true,
                     daysLeft: days,
                   }
-                : o
+                : o,
             )
-          : prev
+          : prev,
       );
     } catch (e) {
       alert(e instanceof Error ? e.message : "Error");
@@ -190,11 +206,13 @@ function OrgsPanel() {
                 ? {
                     ...o,
                     isSponsored,
-                    sponsoredReason: isSponsored ? (sponsorReason[org.orgId] ?? null) : null,
+                    sponsoredReason: isSponsored
+                      ? (sponsorReason[org.orgId] ?? null)
+                      : null,
                   }
-                : o
+                : o,
             )
-          : prev
+          : prev,
       );
     } catch (e) {
       alert(e instanceof Error ? e.message : "Error");
@@ -228,7 +246,9 @@ function OrgsPanel() {
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <span className="font-semibold text-[#1a2e22]">{org.companyName}</span>
+                  <span className="font-semibold text-[#1a2e22]">
+                    {org.companyName}
+                  </span>
                   {org.isSponsored && (
                     <span className="ml-2 rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700">
                       Sponsored
@@ -239,7 +259,9 @@ function OrgsPanel() {
                   </div>
                   <div className="mt-0.5 text-xs text-[#5f7668]">
                     {org.country} · NACE {org.nace}
-                    {org.employeeCount ? ` · ${org.employeeCount} employees` : ""}
+                    {org.employeeCount
+                      ? ` · ${org.employeeCount} employees`
+                      : ""}
                   </div>
                   <div className="mt-0.5 text-xs text-[#5f7668]">
                     Signed up: {new Date(org.signupDate).toLocaleDateString()}
@@ -278,7 +300,10 @@ function OrgsPanel() {
                   className="rounded border border-[#d7e5da] px-2 py-0.5 text-xs"
                   value={extendDays[org.orgId] ?? "30"}
                   onChange={(e) =>
-                    setExtendDays((prev) => ({ ...prev, [org.orgId]: e.target.value }))
+                    setExtendDays((prev) => ({
+                      ...prev,
+                      [org.orgId]: e.target.value,
+                    }))
                   }
                 >
                   {[7, 14, 30, 60, 90].map((d) => (
@@ -305,7 +330,10 @@ function OrgsPanel() {
                     className="flex-1 rounded border border-[#d7e5da] px-2 py-0.5 text-xs"
                     value={sponsorReason[org.orgId] ?? ""}
                     onChange={(e) =>
-                      setSponsorReason((prev) => ({ ...prev, [org.orgId]: e.target.value }))
+                      setSponsorReason((prev) => ({
+                        ...prev,
+                        [org.orgId]: e.target.value,
+                      }))
                     }
                   />
                 )}
@@ -325,7 +353,9 @@ function OrgsPanel() {
                       : "Mark Sponsored"}
                 </button>
                 {org.isSponsored && org.sponsoredReason && (
-                  <span className="text-xs text-[#5f7668]">Reason: {org.sponsoredReason}</span>
+                  <span className="text-xs text-[#5f7668]">
+                    Reason: {org.sponsoredReason}
+                  </span>
                 )}
               </div>
             </div>
@@ -347,6 +377,41 @@ function BillingPanel() {
   const [testMessage, setTestMessage] = useState<string | null>(null);
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [billingHidden, setBillingHidden] = useState(false);
+  const [billingHiddenLoading, setBillingHiddenLoading] = useState(true);
+
+  async function loadVisibility() {
+    setBillingHiddenLoading(true);
+    try {
+      const res = await fetch("/api/admin/billing-visibility");
+      const json = await res.json();
+      if (res.ok) {
+        setBillingHidden((json as { hidden: boolean }).hidden);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setBillingHiddenLoading(false);
+    }
+  }
+
+  async function toggleVisibility() {
+    const next = !billingHidden;
+    setBillingHidden(next);
+    try {
+      await fetch("/api/admin/billing-visibility", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hidden: next }),
+      });
+    } catch {
+      setBillingHidden(!next);
+    }
+  }
+
+  useEffect(() => {
+    loadVisibility();
+  }, []);
 
   async function load() {
     setLoading(true);
@@ -400,19 +465,27 @@ function BillingPanel() {
         body: JSON.stringify({ email: normalizedEmail, amount: testAmount }),
       });
 
-      const json = (await res.json().catch(() => null)) as
-        | { ok?: boolean; url?: string; error?: string }
-        | null;
+      const json = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        url?: string;
+        error?: string;
+      } | null;
 
       if (!res.ok || !json?.url) {
-        throw new Error(json?.error ?? "Failed to create test payment checkout.");
+        throw new Error(
+          json?.error ?? "Failed to create test payment checkout.",
+        );
       }
 
       setCheckoutUrl(json.url);
       setTestMessage("Stripe checkout created. Opening in a new tab...");
       window.open(json.url, "_blank", "noopener,noreferrer");
     } catch (e) {
-      setTestMessage(e instanceof Error ? e.message : "Failed to create test payment checkout.");
+      setTestMessage(
+        e instanceof Error
+          ? e.message
+          : "Failed to create test payment checkout.",
+      );
     } finally {
       setTestBusy(false);
     }
@@ -422,9 +495,46 @@ function BillingPanel() {
     <div>
       <h2 className="text-lg font-semibold text-[#1a2e22]">Billing Settings</h2>
       <p className="mt-1 text-sm text-[#5f7668]">
-        Set the global monthly price shown to users. This does not affect payment processors
-        directly — update Stripe separately.
+        Manage billing visibility, pricing, and payment testing.
       </p>
+
+      {/* Billing visibility toggle */}
+      <div className="mt-4 rounded-xl border border-[#d7e5da] bg-white p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-[#1a2e22]">
+              Hide Billing from Users
+            </h3>
+            <p className="mt-0.5 text-xs text-[#5f7668]">
+              When enabled, the billing page and sidebar link are hidden from
+              all users. Active trials are ended immediately and new signups are
+              automatically marked as sponsored.
+            </p>
+          </div>
+          {billingHiddenLoading ? (
+            <span className="text-xs text-[#5f7668]">Loading…</span>
+          ) : (
+            <button
+              onClick={toggleVisibility}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                billingHidden ? "bg-[#2e7d32]" : "bg-[#bccfc4]"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  billingHidden ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          )}
+        </div>
+        {billingHidden && (
+          <p className="mt-2 text-xs font-medium text-[#9f4b2a]">
+            Billing is currently hidden from users.
+          </p>
+        )}
+      </div>
+
       <div className="mt-4 rounded-xl border border-[#d7e5da] bg-white p-4">
         <div className="flex items-center gap-3">
           <span className="text-sm text-[#5f7668]">Monthly price (EUR)</span>
@@ -476,7 +586,8 @@ function BillingPanel() {
       <div className="mt-4 rounded-xl border border-[#d7e5da] bg-white p-4">
         <h3 className="text-sm font-semibold text-[#1a2e22]">Payment Test</h3>
         <p className="mt-1 text-xs text-[#5f7668]">
-          Create a one-time Stripe checkout session in test mode to validate payment flow.
+          Create a one-time Stripe checkout session in test mode to validate
+          payment flow.
         </p>
 
         <div className="mt-3 grid gap-2 sm:grid-cols-[1fr,140px,auto] sm:items-end">
@@ -515,7 +626,8 @@ function BillingPanel() {
         {testMessage && (
           <p
             className={`mt-2 text-xs ${
-              testMessage.toLowerCase().includes("checkout") || testMessage.toLowerCase().includes("opening")
+              testMessage.toLowerCase().includes("checkout") ||
+              testMessage.toLowerCase().includes("opening")
                 ? "text-[#256338]"
                 : "text-red-600"
             }`}
@@ -561,9 +673,11 @@ function ReminderPanel() {
         body: JSON.stringify({ email }),
       });
 
-      const json = (await res.json().catch(() => null)) as
-        | { ok?: boolean; id?: string | null; error?: string }
-        | null;
+      const json = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        id?: string | null;
+        error?: string;
+      } | null;
 
       if (!res.ok) {
         throw new Error(json?.error ?? "Failed to send test email.");
@@ -572,10 +686,12 @@ function ReminderPanel() {
       setTestResult(
         json?.id
           ? `Test email sent. Resend id: ${json.id}`
-          : "Test email sent successfully."
+          : "Test email sent successfully.",
       );
     } catch (e) {
-      setTestResult(e instanceof Error ? e.message : "Failed to send test email.");
+      setTestResult(
+        e instanceof Error ? e.message : "Failed to send test email.",
+      );
     } finally {
       setTestSending(false);
     }
@@ -583,9 +699,12 @@ function ReminderPanel() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-[#1a2e22]">Reminder Settings</h2>
+      <h2 className="text-lg font-semibold text-[#1a2e22]">
+        Reminder Settings
+      </h2>
       <p className="mt-1 text-sm text-[#5f7668]">
-        Send a test reminder email using the same notification template used for scheduled reminders.
+        Send a test reminder email using the same notification template used for
+        scheduled reminders.
       </p>
       <div className="mt-4 rounded-xl border border-[#d7e5da] bg-white p-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -607,7 +726,9 @@ function ReminderPanel() {
         {testResult && (
           <p
             className={`mt-2 text-xs ${
-              testResult.toLowerCase().includes("sent") ? "text-[#256338]" : "text-red-600"
+              testResult.toLowerCase().includes("sent")
+                ? "text-[#256338]"
+                : "text-red-600"
             }`}
           >
             {testResult}
@@ -639,7 +760,11 @@ function SyncPanel() {
       } else {
         setResults((prev) => ({
           ...prev,
-          [target]: JSON.stringify((json as { result: unknown }).result, null, 2),
+          [target]: JSON.stringify(
+            (json as { result: unknown }).result,
+            null,
+            2,
+          ),
         }));
       }
     } catch (e) {
@@ -660,7 +785,10 @@ function SyncPanel() {
       </p>
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
         {(["knowledge", "rules", "reminders"] as const).map((target) => (
-          <div key={target} className="rounded-xl border border-[#d7e5da] bg-white p-4">
+          <div
+            key={target}
+            className="rounded-xl border border-[#d7e5da] bg-white p-4"
+          >
             <div className="font-medium capitalize text-[#1a2e22]">
               {target === "knowledge"
                 ? "Knowledge Hub"
@@ -726,16 +854,21 @@ function ArticlesPanel() {
       const res = await fetch("/api/admin/articles", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ articleId: article.article_id, isActive: !article.is_active }),
+        body: JSON.stringify({
+          articleId: article.article_id,
+          isActive: !article.is_active,
+        }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed");
       setArticles((prev) =>
         prev
           ? prev.map((a) =>
-              a.article_id === article.article_id ? { ...a, is_active: !a.is_active } : a
+              a.article_id === article.article_id
+                ? { ...a, is_active: !a.is_active }
+                : a,
             )
-          : prev
+          : prev,
       );
     } catch (e) {
       alert(e instanceof Error ? e.message : "Error");
@@ -750,14 +883,16 @@ function ArticlesPanel() {
           !filter ||
           a.title.toLowerCase().includes(filter.toLowerCase()) ||
           a.country.toLowerCase().includes(filter.toLowerCase()) ||
-          a.category.toLowerCase().includes(filter.toLowerCase())
+          a.category.toLowerCase().includes(filter.toLowerCase()),
       )
     : null;
 
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-[#1a2e22]">Knowledge Articles</h2>
+        <h2 className="text-lg font-semibold text-[#1a2e22]">
+          Knowledge Articles
+        </h2>
         <button
           onClick={load}
           disabled={loading}

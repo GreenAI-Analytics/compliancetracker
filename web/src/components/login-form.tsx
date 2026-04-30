@@ -40,6 +40,9 @@ export function LoginForm() {
   const [optionsLoading, setOptionsLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [signupEmail, setSignupEmail] = useState("");
 
   useEffect(() => {
     const requestedMode = searchParams.get("mode");
@@ -298,9 +301,10 @@ export function LoginForm() {
           }
         }
 
-        setMessage(
-          "Account created! Check your email to confirm your address, then log in.",
-        );
+        setSignupEmail(email);
+        setShowConfirmation(true);
+        setEmail("");
+        setPassword("");
       }
     } catch (error) {
       setMessage(
@@ -309,6 +313,85 @@ export function LoginForm() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function resendVerification() {
+    setResending(true);
+    try {
+      const supabase = getSupabaseClient();
+      if (!supabase) return;
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: signupEmail,
+      });
+      if (error) {
+        setMessage(error.message);
+      } else {
+        setMessage("Verification email resent! Check your inbox.");
+      }
+    } catch {
+      setMessage("Failed to resend. Please try again.");
+    } finally {
+      setResending(false);
+    }
+  }
+
+  // ── Confirmation screen after email signup ──────────────────────────
+
+  if (showConfirmation) {
+    return (
+      <div className="mx-auto max-w-md rounded-2xl border border-[#d8d0bd] bg-[#fffdf8] p-8 shadow-lg">
+        <div className="text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#1e3326]/10">
+            <svg
+              className="h-8 w-8 text-[#1e3326]"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"
+              />
+            </svg>
+          </div>
+          <h2 className="mt-4 text-xl font-bold text-[#1e3326]">
+            Verify your email
+          </h2>
+          <p className="mt-2 text-sm text-[#5c695f]">
+            We sent a confirmation link to{" "}
+            <span className="font-medium text-[#1e3326]">{signupEmail}</span>.
+            Click the link to activate your account, then log in.
+          </p>
+          <div className="mt-2 text-xs text-[#7b8880]">
+            Didn&apos;t receive it? Check your spam folder.
+          </div>
+        </div>
+
+        <div className="mt-8 flex flex-col gap-3">
+          <button
+            type="button"
+            onClick={resendVerification}
+            disabled={resending}
+            className="w-full rounded-lg bg-[#1e3326] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#2a4a38] disabled:opacity-60"
+          >
+            {resending ? "Sending…" : "Resend verification email"}
+          </button>
+          <Link
+            href="/login"
+            className="w-full rounded-lg border border-[#d7cfbb] bg-[#fffef9] px-4 py-2.5 text-center text-sm font-medium text-[#1e3326] transition-colors hover:bg-[#f2f1ec]"
+          >
+            Back to login
+          </Link>
+        </div>
+
+        {message && (
+          <p className="mt-4 text-center text-sm text-[#4a5b52]">{message}</p>
+        )}
+      </div>
+    );
   }
 
   return (

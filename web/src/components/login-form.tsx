@@ -275,6 +275,7 @@ export function LoginForm() {
               nace_section: selectedSection,
               nace_code: normalizedNaceCode,
             },
+            emailRedirectTo: `${window.location.origin}/login`,
           },
         });
         if (error) throw error;
@@ -323,6 +324,9 @@ export function LoginForm() {
       const { error } = await supabase.auth.resend({
         type: "signup",
         email: signupEmail,
+        options: {
+          emailRedirectTo: `${window.location.origin}/login`,
+        },
       });
       if (error) {
         setMessage(error.message);

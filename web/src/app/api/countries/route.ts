@@ -49,6 +49,15 @@ export async function GET() {
     );
   }
 
+  // If no rules are synced yet, fall back to the full list of supported countries
+  if (!data || data.length === 0) {
+    const countries = Object.entries(COUNTRY_NAMES).map(([code, name]) => ({
+      code,
+      name,
+    }));
+    return NextResponse.json({ countries });
+  }
+
   const uniqueCodes = [
     ...new Set((data as { country: string }[]).map((r) => r.country)),
   ];

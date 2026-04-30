@@ -24,6 +24,23 @@ export async function GET() {
     );
   }
 
+  // If no rules are synced yet, fall back to the full list of NACE divisions
+  if (!data || data.length === 0) {
+    const allCodes = Object.keys(NACE_TWO_DIGIT_DESCRIPTIONS).sort(
+      (a, b) => Number.parseInt(a, 10) - Number.parseInt(b, 10),
+    );
+    const naceOptions: NaceOption[] = allCodes.map((code) => ({
+      code,
+      section: getNaceSectionCode(code) ?? "",
+      description: NACE_TWO_DIGIT_DESCRIPTIONS[code] ?? `NACE division ${code}`,
+    }));
+    const sections = NACE_SECTIONS.map((section) => ({
+      code: section.code,
+      name: section.name,
+    }));
+    return NextResponse.json({ sections, naceOptions });
+  }
+
   const uniqueCodes = new Set<string>();
   for (const row of data ?? []) {
     const nace = String(row.nace ?? "");

@@ -21,7 +21,10 @@ type Props = {
 };
 
 export default function KnowledgeHubClient({ articles }: Props) {
-  // ── Derive unique categories sorted A–Z ────────────────────────────
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Derive unique categories sorted A-Z
   const uniqueCategories = useMemo(() => {
     const set = new Set<string>();
     for (const a of articles) {
@@ -30,30 +33,121 @@ export default function KnowledgeHubClient({ articles }: Props) {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [articles]);
 
-  // ── State: selected category (null = "All") ────────────────────────
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  // Normalised search terms
+  const searchTerms = useMemo(() => {
+    const raw = searchQuery.trim();
+    if (!raw) return [];
+    return raw
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((t) => t.length > 0);
+  }, [searchQuery]);
 
-  // ── Filter articles by selected category ───────────────────────────
+  // Filter articles by category + search query
   const filteredArticles = useMemo(() => {
-    if (!selectedCategory) return articles;
-    return articles.filter((a) => (a.category || "General") === selectedCategory);
-  }, [articles, selectedCategory]);
+    let result = articles;
 
-  // ── Group filtered articles by category for display ────────────────
+    // Category filter
+    if (selectedCategory) {
+      result = result.filter(
+        (a) => (a.category || "General") === selectedCategory,
+      );
+    }
+
+    // Search filter - checks title, summary, markdown body, and tags
+    if (searchTerms.length > 0) {
+      result = result.filter((a) => {
+        const haystack = [a.title, a.summary ?? "", a.markdown_body, ...a.tags]
+          .join(" ")
+          .toLowerCase();
+        return searchTerms.every((term) => haystack.includes(term));
+      });
+    }
+
+    return result;
+  }, [articles, selectedCategory, searchTerms]);
+
+  // Group filtered articles by category for display
   const grouped = useMemo(() => {
     return Object.entries(
-      filteredArticles.reduce<Record<string, KnowledgeArticle[]>>((acc, article) => {
-        const key = article.category || "General";
-        if (!acc[key]) acc[key] = [];
-        acc[key].push(article);
-        return acc;
-      }, {}),
+      filteredArticles.reduce<Record<string, KnowledgeArticle[]>>(
+        (acc, article) => {
+          const key = article.category || "General";
+          if (!acc[key]) acc[key] = [];
+          acc[key].push(article);
+          return acc;
+        },
+        {},
+      ),
     ).sort(([a], [b]) => a.localeCompare(b));
   }, [filteredArticles]);
 
+  // Build a descriptive results label
+  const resultsLabel = useMemo(() => {
+    const parts: string[] = [];
+    if (searchTerms.length > 0) {
+      parts.push(`matching "${searchQuery.trim()}"`);
+    }
+    if (selectedCategory) {
+      parts.push(`in "${selectedCategory}"`);
+    } else {
+      parts.push("across all categories");
+    }
+    const count = filteredArticles.length;
+    return `${count} article${count !== 1 ? "s" : ""} ${parts.join(" ")}`;
+  }, [filteredArticles.length, searchTerms, searchQuery, selectedCategory]);
+
   return (
     <>
-      {/* ── Category filter chips ─────────────────────────────────── */}
+      {/* Search bar */}
+      <div className="mt-4">
+        <div className="relative max-w-md">
+          <svg
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9aa69c]"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={1.5}
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
+            />
+          </svg>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search articles..."
+            className="w-full rounded-lg border border-[#d7e5da] bg-white py-2 pl-9 pr-8 text-sm text-[#1a2e22] placeholder-[#9aa69c] transition focus:border-[#b9d2bf] focus:outline-none focus:ring-2 focus:ring-[#b9d2bf]/40"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-[#9aa69c] hover:text-[#5a675e]"
+              aria-label="Clear search"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18 18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Category filter chips */}
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <button
           type="button"
@@ -83,19 +177,17 @@ export default function KnowledgeHubClient({ articles }: Props) {
         ))}
       </div>
 
-      {/* ── Results count ─────────────────────────────────────────── */}
-      <p className="mt-3 text-xs text-[#7b8880]">
-        {filteredArticles.length} article{filteredArticles.length !== 1 ? "s" : ""}
-        {selectedCategory ? ` in “${selectedCategory}”` : " across all categories"}
-      </p>
+      {/* Results count */}
+      <p className="mt-3 text-xs text-[#7b8880]">{resultsLabel}</p>
 
-      {/* ── Article list ──────────────────────────────────────────── */}
+      {/* Article list */}
       <div className="mt-6 space-y-6">
         {grouped.map(([category, items]) => (
           <section key={category}>
-            {/* Only show the category heading when viewing "All" */}
             {!selectedCategory && (
-              <h2 className="mb-3 text-lg font-semibold text-[#1a2e22]">{category}</h2>
+              <h2 className="mb-3 text-lg font-semibold text-[#1a2e22]">
+                {category}
+              </h2>
             )}
             <div className="space-y-3">
               {items.map((article) => (
@@ -106,7 +198,9 @@ export default function KnowledgeHubClient({ articles }: Props) {
                 >
                   <article>
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-base font-semibold text-[#173224]">{article.title}</h3>
+                      <h3 className="text-base font-semibold text-[#173224]">
+                        {highlightMatches(article.title, searchTerms)}
+                      </h3>
                       <span className="rounded-full border border-[#d7e5da] bg-[#f3f8f4] px-2 py-0.5 text-[11px] font-medium text-[#355143]">
                         {article.country}
                       </span>
@@ -118,7 +212,8 @@ export default function KnowledgeHubClient({ articles }: Props) {
                     </div>
 
                     <p className="mt-2 text-sm text-[#43584b]">
-                      {article.summary?.trim() || excerptFromMarkdown(article.markdown_body)}
+                      {article.summary?.trim() ||
+                        excerptFromMarkdown(article.markdown_body)}
                     </p>
 
                     {article.tags.length > 0 && (
@@ -128,7 +223,7 @@ export default function KnowledgeHubClient({ articles }: Props) {
                             key={`${article.id}-${tag}`}
                             className="rounded-full border border-[#d7e5da] bg-[#f3f8f4] px-2 py-0.5 text-[11px] font-medium text-[#355143]"
                           >
-                            {tag}
+                            {highlightMatches(tag, searchTerms)}
                           </span>
                         ))}
                       </div>
@@ -142,10 +237,43 @@ export default function KnowledgeHubClient({ articles }: Props) {
 
         {filteredArticles.length === 0 && (
           <div className="rounded-xl border border-[#d7e5da] bg-white p-5 text-sm text-[#5f7668]">
-            No articles found for category “{selectedCategory}”.
+            {searchTerms.length > 0
+              ? `No articles matching "${searchQuery.trim()}"${selectedCategory ? ` in "${selectedCategory}"` : ""}. Try a different search term.`
+              : `No articles found for category "${selectedCategory}".`}
           </div>
         )}
       </div>
+    </>
+  );
+}
+
+// Highlight search matches in text using a non-stateful regex
+function highlightMatches(text: string, terms: string[]): React.ReactNode {
+  if (terms.length === 0) return text;
+
+  const escaped = terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const splitPattern = new RegExp(`(${escaped.join("|")})`, "gi");
+  const parts = text.split(splitPattern);
+
+  if (parts.length === 1) return text;
+
+  // Non-global regex so test() does not carry lastIndex state
+  const testPattern = new RegExp(`^(${escaped.join("|")})$`, "i");
+
+  return (
+    <>
+      {parts.map((part, i) =>
+        testPattern.test(part) ? (
+          <mark
+            key={i}
+            className="rounded-sm bg-[#e8f0d5] px-0.5 text-[#1e3326]"
+          >
+            {part}
+          </mark>
+        ) : (
+          <span key={i}>{part}</span>
+        ),
+      )}
     </>
   );
 }

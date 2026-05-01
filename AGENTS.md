@@ -21,8 +21,10 @@ npm run test:e2e:ui    # Playwright with UI
 | Edge Functions | Supabase Deno Functions | Nightly rule/knowledge sync, email reminders |
 | Payments | Stripe | Subscriptions and checkout |
 | Email | Resend API | Transactional emails (reminders) |
+| Auth Email SMTP | Resend SMTP (or any provider) | Deliverability for Supabase auth emails (signup confirmations, password resets) |
 | Styling | Tailwind CSS v4 | Utility-first CSS |
 | Testing | Playwright | E2E tests |
+| Error Monitoring | Sentry | Client-side + server-side error tracking |
 | Deployment | Vercel (push to `master`) | Production hosting |
 
 ## Project Structure
@@ -48,15 +50,15 @@ compliancetracker/
 │   │   │   │   ├── historical/     # Historical task data
 │   │   │   │   └── knowledge/      # Knowledge hub (articles from compliance-knowledge repo)
 │   │   │   └── api/                # API routes
-│   │   │       ├── auth/complete-signup/     # Post-signup org/user/profile creation
+│   │   │       ├── auth/complete-signup/     # Post-signup org/user/profile creation (idempotent, CSRF-protected, rate-limited)
 │   │   │       ├── task-instances/complete/  # Mark task complete
 │   │   │       ├── billing/checkout, portal, webhook
 │   │   │       ├── admin/                    # Stats, orgs, billing-price, sync, articles, extend-trial, sponsor-org, test-reminder-email, login, logout
 │   │   │       ├── settings/                 # category-visibility, custom-tasks, hidden-tasks, payment-information, task-reminders
-│   │   │       ├── countries/                # Country options
-│   │   │       └── nace-options/             # NACE code options
+│   │   │       ├── countries/                # Country options (falls back to hardcoded list when rules table is empty)
+│   │   │       └── nace-options/             # NACE code options (falls back to hardcoded list when rules table is empty)
 │   │   ├── components/
-│   │   │   ├── login-form.tsx        # Login/signup form (email/password + OAuth)
+│   │   │   ├── login-form.tsx        # Login/signup form (email/password + OAuth + confirmation screen)
 │   │   │   ├── app-shell.tsx         # Sidebar + main content layout
 │   │   │   ├── task-list.tsx         # Interactive task list with completion
 │   │   │   ├── compliance-calendar.tsx # Monthly calendar view
@@ -78,6 +80,12 @@ compliancetracker/
 │   │       ├── task-seeder.ts        # Task instance generation engine
 │   │       ├── admin-auth.ts         # Admin HMAC session auth
 │   │       ├── stripe.ts             # Stripe server client
+│   │       ├── csrf.ts               # CSRF token generation & validation
+│   │       ├── rate-limit.ts         # IP-based rate limiting
+│   │       ├── body-limit.ts         # Request body size limiting
+│   │       ├── error-utils.ts        # Sanitized error message helpers
+│   │       ├── sentry.ts             # Sentry error monitoring client
+│   │       ├── rules-check.ts        # Server-side rules validation
 │   │       ├── nace-sections.ts
 │   │       └── nace-two-digit-descriptions.ts
 │   └── tests/e2e/                    # Playwright tests
@@ -112,7 +120,7 @@ compliancetracker/
 - **task_completions** — Task completion records
 - **evidence_attachments** — Uploaded evidence files
 - **activity_logs** — Audit trail
-- **admin_settings** — Key/value store (billing price, etc.)
+- **admin_settings** — Key/value store (billing price, `billing_hidden`, etc.)
 - **hidden_items** — Per-org hidden tasks/categories
 - **custom_tasks** — User-created custom tasks
 - **custom_categories** — User-created custom categories
@@ -132,15 +140,63 @@ Three Deno functions under `supabase/functions/`:
 
 Deploy: `supabase functions deploy <function-name>` (all have `verify_jwt = false`)
 
+## Supabase Auth Email Configuration ⚠️ Critical for Production
+
+Beyond code, the Supabase **dashboard** controls auth email deliverability, branding, and behavior. Three things must be configured before production use:
+
+### 1. Custom SMTP (fixes spam classification)
+Default Supabase emails use a shared sender with low reputation and almost always land in spam. Configure a **custom SMTP provider**:
+
+**In Supabase Dashboard → Authentication → Settings → SMTP Settings:**
+- Enable **Custom SMTP**
+- **Host:** `smtp.resend.com` (if using Resend; you already have a Resend API key)
+- **Port:** `465` (SSL) or `587` (TLS)
+- **Username:** `resend`
+- **Password:** your Resend API key
+- **Sender email:** e.g. `auth@yourdomain.com`
+- **Sender name:** `Compliance Tracker`
+
+**DNS records needed** (for your sending domain):
+- **SPF:** `v=spf1 include:resend.com ~all`
+- **DKIM:** (provided by Resend in their dashboard)
+- **DMARC:** `v=DMARC1; p=none; rua=mailto:your-email@yourdomain.com`
+
+These DNS records prove the email is legitimate to Google, Microsoft, etc.
+
+### 2. Email Templates (fixes "phishy" appearance)
+**In Supabase Dashboard → Authentication → Email Templates → Confirm Signup:**
+Customize the HTML. Include a branded header ("Welcome to Compliance Tracker"), your logo/name, a clear call-to-action button, and a footer with your company name. This avoids the bare/default template that looks like a phishing attempt.
+
+### 3. URL Configuration
+**In Supabase Dashboard → Authentication → URL Configuration:**
+- **Site URL:** `https://yourproductiondomain.com`
+- **Redirect URLs** must include:
+  - `https://yourproductiondomain.com/**`
+  - `http://localhost:3000/**` (local dev)
+- The `emailRedirectTo` option in `signUp()` (set to `${origin}/login`) will override the SITE_URL for confirmation links
+
 ## Key Flows
 
 ### Signup Flow
 1. User visits `/login?mode=signup` or clicks social OAuth
 2. **Email/password**: Shows editable email + password + company profile fields
 3. **OAuth**: Pre-fills read-only email from provider, shows company fields
-4. On submit → `supabase.auth.signUp()` (email) or `signInWithOAuth()` (social)
-5. `POST /api/auth/complete-signup` creates: organization → user → onboarding_profile → seeds task instances
-6. Email users must confirm their email before logging in
+4. On submit:
+   - **Email**: `supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${origin}/login` } })` — sends confirmation email that redirects to `/login`
+   - **Social**: `supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${origin}/login?mode=signup&fresh=1&oauth=1` } })`
+5. `POST /api/auth/complete-signup` creates: organization → user → onboarding_profile → seeds task instances (idempotent, CSRF-protected, rate-limited)
+6. **Email users** see a dedicated confirmation screen with:
+   - Mail icon and "Verify your email" heading
+   - Displays the email the confirmation was sent to
+   - "Resend verification email" button (calls `supabase.auth.resend()` with `emailRedirectTo`)
+   - "Back to login" link
+   - Form fields are cleared and mode toggle is hidden
+7. Users confirm via email link → lands on `/login` to sign in
+
+### Country & NACE Dropdown Fallback
+- `/api/countries` and `/api/nace-options` query the `rules` table
+- When the rules table is empty (e.g., `sync-compliance-rules` hasn't run yet), both endpoints fall back to **hardcoded lists** of all 31 EU/EEA countries and all 88 NACE two-digit codes
+- Once rules are synced, they automatically switch to showing only options with available rules
 
 ### Task Instance Generation (`lib/task-seeder.ts`)
 - Runs on signup completion and as dashboard fallback if no instances exist
@@ -186,6 +242,10 @@ NEXT_PUBLIC_STRIPE_PRICE_ID=price_...
 # Resend (reminder emails)
 RESEND_API_KEY=re_...
 REMINDER_FROM_EMAIL=reminders@example.com
+
+# Sentry (error monitoring, optional)
+NEXT_PUBLIC_SENTRY_DSN=
+SENTRY_AUTH_TOKEN=
 ```
 
 ## Current Status (April 2026)
@@ -197,6 +257,9 @@ REMINDER_FROM_EMAIL=reminders@example.com
 - Favicon, environment example file
 - Vercel project configuration
 - **Production hardening audit** — see findings below
+- **Country & NACE dropdown fallback** — `/api/countries` and `/api/nace-options` return hardcoded lists when the `rules` table is empty, fixing empty dropdowns before rules are synced
+- **Dedicated email verification screen** — replaced tiny inline message with full confirmation UI (mail icon, resend button, back-to-login link)
+- **Confirmation email redirect fix** — `signUp()` and `resend()` now pass `emailRedirectTo: \`${origin}/login\`` so the confirmation link always points to the correct environment
 
 ### Production Hardening (April 2026)
 - **Made `complete-signup` idempotent** — checks for existing onboarding profile before creating org/user/profile; returns early if already exists
@@ -206,6 +269,10 @@ REMINDER_FROM_EMAIL=reminders@example.com
 - **Added root-level `.env.example`** — documents all required environment variables for Supabase CLI and edge functions
 - **Fixed `supabase_schema.sql` path** — corrected in AGENTS.md file tree (was incorrectly listed inside `supabase/` directory)
 - **Added `Hide Billing` feature** — admin Billing tab has a toggle to hide billing from users, end active trials, and mark new signups as sponsored
+- **CSRF protection** — `lib/csrf.ts` with token generation/validation; applied to `complete-signup` route with cookie rotation
+- **Rate limiting** — `lib/rate-limit.ts` with IP-based request throttling; applied to `complete-signup` route
+- **Body size limits** — `lib/body-limit.ts` with configurable request body size enforcement; applied to `complete-signup` route
+- **Sentry client** — `lib/sentry.ts` with client-side and server-side initialization (needs `NEXT_PUBLIC_SENTRY_DSN` to activate)
 
 ### Known Gaps / Immediate Priorities
 1. ~~`complete-signup` route is **not idempotent** — can create duplicate records~~ ✅ Fixed
@@ -217,9 +284,11 @@ REMINDER_FROM_EMAIL=reminders@example.com
 7. **No RLS policies** on core tables — all queries use the service_role key; Supabase anon key is underutilised
 8. **Onboarding page is a scaffold** — `/onboarding` shows placeholders with no form logic
 9. **No evidence upload** — tasks have `evidence_required` flag but upload UI and API are not implemented
-10. **No CSRF protection** — relies entirely on `SameSite=Lax` cookies
-11. **No request size limits** on API routes that accept payloads
-12. **No Sentry/error monitoring** — all production errors would be silent
+10. **CSRF protection is partial** — only applied to `complete-signup` route; other mutation endpoints (settings, admin, billing) still unprotected
+11. **Rate limiting is partial** — only applied to `complete-signup` route; other API endpoints lack rate limiting
+12. **Body size limits are partial** — only applied to `complete-signup` route; other mutation endpoints lack body limits
+13. **Sentry is wired but untested** — `lib/sentry.ts` exists but `NEXT_PUBLIC_SENTRY_DSN` is not configured
+14. **Supabase auth emails need SMTP + template configuration** — default emails go to spam and look phishy; must configure Resend SMTP and custom HTML templates in Supabase dashboard
 
 ## Testing
 
@@ -234,6 +303,8 @@ Tests are in `web/tests/e2e/`. Currently only `forgot-password.spec.ts` exists.
 ## Deployment
 
 Push to `master` → Vercel auto-deploys production. Vercel project is named `compliancetracker`.
+
+**Root Directory** must be set to `web` in Vercel project settings (Settings → General → Root Directory).
 
 Environment variables must be configured in Vercel project settings (Production + Preview).
 
@@ -253,3 +324,4 @@ supabase functions deploy <name>  # Deploy edge function
 supabase functions invoke <name>  # Manual invocation
 # PowerShell requires `;` instead of `&&`:
 # cd web; npm run dev
+```

@@ -1,121 +1,184 @@
 # Social Login Setup Guide
 
-This project already has social login buttons and OAuth redirect handling in the app.
+This project supports Google and Microsoft (Azure) OAuth login. The buttons
+are already wired up in `login-form.tsx` — this guide covers the external
+configuration needed to make them work in production.
 
-Supported providers:
-- Google
-- Microsoft (Azure)
-
-## 1. Confirm app environment variables
-
-Set these in local and production environments:
-
-- NEXT_PUBLIC_SUPABASE_URL
-- NEXT_PUBLIC_SUPABASE_ANON_KEY
-- SUPABASE_SERVICE_ROLE_KEY
-
-Notes:
-- The browser auth client depends on NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.
-- Server routes (including signup completion) depend on SUPABASE_SERVICE_ROLE_KEY.
-
-## 2. Enable providers in Supabase
-
-In Supabase dashboard:
-1. Go to Authentication -> Providers.
-2. Enable Google.
-3. Enable Azure (Microsoft).
-4. Save.
-
-For each provider, Supabase will show the values you must copy into that provider's app registration.
-
-## 3. Configure Supabase URL settings
-
-In Supabase dashboard:
-1. Go to Authentication -> URL Configuration.
-2. Set Site URL for local development:
-   - http://localhost:3000
-3. Add Redirect URLs:
-   - http://localhost:3000/login?mode=signup&fresh=1&oauth=1
-   - https://compliancetracker.greenaianalytics.org/login?mode=signup&fresh=1&oauth=1
-   - https://web-*.vercel.app/login?mode=signup&fresh=1&oauth=1 (optional for direct preview testing)
-
-Why this exact redirect matters:
-- The frontend calls signInWithOAuth with redirectTo set to /login?mode=signup&fresh=1&oauth=1.
-- If this URL is not allow-listed, OAuth callback will fail.
-
-## 4. Configure Google OAuth app
-
-In Google Cloud Console:
-1. Create or open your OAuth client.
-2. Add Authorized redirect URI:
-   - https://<YOUR_SUPABASE_PROJECT_REF>.supabase.co/auth/v1/callback
-3. Add Authorized JavaScript origins (if required by your setup):
-   - http://localhost:3000
-   - https://compliancetracker.greenaianalytics.org
-4. Copy Google Client ID and Client Secret.
-5. Paste them into Supabase Google provider settings.
-6. Save provider settings in Supabase.
-
-## 5. Configure Microsoft (Azure) OAuth app
-
-In Azure Portal (App registrations):
-1. Create or open your app registration.
-2. Add Redirect URI (Web):
-   - https://<YOUR_SUPABASE_PROJECT_REF>.supabase.co/auth/v1/callback
-3. Ensure Accounts setting matches your desired tenant scope.
-4. Create a client secret and copy it immediately.
-5. Copy Application (client) ID, client secret, and tenant info.
-6. Paste required values into Supabase Azure provider settings.
-7. Save provider settings in Supabase.
-
-## 6. Production deployment checks (Vercel)
-
-In Vercel project environment variables (Production):
-- NEXT_PUBLIC_SUPABASE_URL
-- NEXT_PUBLIC_SUPABASE_ANON_KEY
-- SUPABASE_SERVICE_ROLE_KEY
-
-Then redeploy production so the env vars are active in the latest deployment.
-
-If Vercel deployment protection is enabled, users must pass Vercel auth first before app OAuth flow starts.
-
-## 7. End-to-end test flow
-
-Test Google and Microsoft separately:
-1. Open /login.
-2. Click social button.
-3. Authenticate with provider.
-4. Confirm you return to /login?mode=signup&fresh=1&oauth=1.
-5. Complete signup fields and submit.
-6. Confirm redirect to /dashboard.
-
-Expected behavior:
-- New social user lands in signup completion mode.
-- Existing authenticated user should continue into the app without re-auth prompts.
-
-## 8. Known current gap
-
-The current complete-signup route is not fully idempotent for repeated OAuth callbacks.
-
-Impact:
-- Re-running social signup for an already provisioned user can fail or try duplicate records.
-
-Recommended follow-up:
-- Make complete-signup idempotent by checking for existing user/org/onboarding records and updating instead of always inserting.
-
-## 9. Troubleshooting quick checks
-
-If social login fails, check these first:
-1. Provider callback URL exactly matches Supabase callback URL.
-2. Supabase Redirect URLs include the full login URL with query params.
-3. NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are present in deployment.
-4. Browser is not blocking third-party auth popup/redirect flow.
-5. You are testing on an allowed domain (localhost or configured production domain).
+**Production domain:** `https://compliancetracker.greenaianalytics.org`
 
 ---
 
-Implementation references in this repo:
-- web/src/components/login-form.tsx
-- web/src/app/api/auth/complete-signup/route.ts
-- web/src/proxy.ts
-- README.md (OAuth setup checklist section)
+## 1. Prerequisites
+
+Confirm these environment variables exist in Vercel (Production) and your
+`.env.local`:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
+```
+
+---
+
+## 2. Enable Providers in Supabase Dashboard
+
+1. Go to **Authentication → Providers**
+2. Enable **Google** — leave the Client ID / Secret blank for now
+3. Enable **Azure (Microsoft)** — leave fields blank for now
+4. Click **Save**
+
+Supabase will display a **callback URL** for each provider. Copy both:
+
+```
+https://<project-ref>.supabase.co/auth/v1/callback
+```
+
+You'll paste these into Google Cloud Console and Azure Portal in steps 4 and 5.
+
+---
+
+## 3. Configure Supabase URL Settings
+
+Go to **Authentication → URL Configuration** and set:
+
+| Setting | Value |
+|---|---|
+| **Site URL** | `https://compliancetracker.greenaianalytics.org` |
+| **Redirect URLs** | `http://localhost:3000/**` |
+| | `http://localhost:3000/login?mode=signup&fresh=1&oauth=1` |
+| | `https://compliancetracker.greenaianalytics.org/**` |
+| | `https://compliancetracker.greenaianalytics.org/login?mode=signup&fresh=1&oauth=1` |
+
+> **Why the exact query string matters:** The frontend calls
+> `supabase.auth.signInWithOAuth()` with
+> `redirectTo: \`${origin}/login?mode=signup&fresh=1&oauth=1\``.
+> If that full URL (including query params) is not in the Redirect URLs list,
+> the OAuth callback will fail with "No redirect allowed".
+
+---
+
+## 4. Configure Google OAuth App
+
+In [Google Cloud Console](https://console.cloud.google.com/apis/credentials):
+
+### 4a. Create a new OAuth 2.0 Client ID (or use existing)
+
+1. Go to **APIs & Services → Credentials**
+2. Click **Create Credentials → OAuth client ID**
+3. Application type: **Web application**
+4. Name: `Compliance Tracker` (or similar)
+
+### 4b. Configure Authorized Redirect URIs
+
+Add this exact URI:
+
+```
+https://<project-ref>.supabase.co/auth/v1/callback
+```
+
+### 4c. Configure Authorized JavaScript Origins
+
+Add these origins:
+
+```
+http://localhost:3000
+https://compliancetracker.greenaianalytics.org
+```
+
+### 4d. Copy credentials to Supabase
+
+1. Copy the **Client ID** and **Client Secret** from Google
+2. In Supabase → **Authentication → Providers → Google**, paste them
+3. Click **Save**
+
+### 4e. OAuth consent screen (if first time)
+
+If this is a new app, you'll also need to configure the OAuth consent screen:
+- User type: **External**
+- Add the scopes: `email`, `profile`, `openid`
+- Add test users (your email) for testing before publishing
+
+---
+
+## 5. Configure Microsoft (Azure) OAuth App
+
+In [Azure Portal](https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade):
+
+### 5a. Create or open your App Registration
+
+1. Go to **App registrations → New registration**
+2. Name: `Compliance Tracker`
+3. Supported account types: **Accounts in any organizational directory (Any Microsoft Entra ID tenant - Multitenant)**
+4. Redirect URI: **Web** → `https://<project-ref>.supabase.co/auth/v1/callback`
+5. Click **Register**
+
+### 5b. Create a Client Secret
+
+1. Go to **Certificates & secrets → Client secrets → New client secret**
+2. Description: `Supabase OAuth`
+3. Expires: 24 months (or your preference)
+4. Click **Add**
+5. **Copy the secret value immediately** — it won't be shown again
+
+### 5c. Copy credentials to Supabase
+
+In Supabase → **Authentication → Providers → Azure**:
+
+| Supabase field | Azure value |
+|---|---|
+| **Client ID** | Application (client) ID |
+| **Client Secret** | The secret you copied in step 5b |
+| **Azure Tenant ID** | Use `common` for multi-tenant (most common) or your specific tenant ID |
+
+Click **Save**.
+
+---
+
+## 6. Verify the Setup
+
+### Local development test
+
+1. Run `cd web && npm run dev`
+2. Open `http://localhost:3000/login`
+3. Click **Continue with Google** or **Continue with Microsoft**
+4. Authenticate with the provider
+5. You should land on `/login?mode=signup&fresh=1&oauth=1`
+6. Fill in company details and submit → redirected to `/dashboard`
+
+### Production test
+
+1. Visit `https://compliancetracker.greenaianalytics.org/login`
+2. Repeat steps 3–6 above
+
+### Expected behavior
+
+| Scenario | Result |
+|---|---|
+| **New user, first OAuth login** | Lands on signup form with company fields, email pre-filled |
+| **Existing user, already onboarded** | Redirected to `/dashboard` |
+| **Existing user, not yet onboarded** | Lands on signup form (same as new user) |
+
+---
+
+## 7. Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| "No redirect allowed" or blank screen after OAuth | Redirect URL not allow-listed in Supabase | Add the full URL with query params to Supabase → Auth → Redirect URLs |
+| Provider shows error after authenticating | Callback URI mismatch | Verify the callback URL in Google/MS matches `https://<project-ref>.supabase.co/auth/v1/callback` |
+| Google shows "Access blocked" | OAuth consent screen not configured | Set up consent screen in Google Cloud Console (External, add test users) |
+| Redirected to wrong URL after login | `NEXT_PUBLIC_SUPABASE_URL` incorrect | Check the env var in Vercel / `.env.local` |
+| Social button does nothing | Supabase env vars missing in client | Verify `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are set |
+| Loop back to login after OAuth | complete-signup route failing | Check Vercel logs; verify `SUPABASE_SERVICE_ROLE_KEY` is set |
+
+---
+
+## 8. Code References
+
+| File | Role |
+|---|---|
+| `web/src/components/login-form.tsx` | Social login buttons + OAuth redirect handling |
+| `web/src/app/api/auth/complete-signup/route.ts` | Post-signup org/user/profile creation (now idempotent) |
+| `web/src/proxy.ts` | Auth session refresh + protected route middleware |
+| `web/src/lib/csrf.ts` | CSRF protection (applied to complete-signup) |

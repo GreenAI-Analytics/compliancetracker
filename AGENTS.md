@@ -251,6 +251,9 @@ SENTRY_AUTH_TOKEN=
 ## Current Status (April 2026)
 
 ### Recently Completed
+- **CSRF fix for all mutation endpoints** — changed cookie to non-httpOnly for double-submit pattern, added `csrfFetch()` wrapper that auto-injects `X-CSRF-Token` header, updated all 10 client components to use it
+- **Knowledge hub category filtering + search** — category chips at top filter by category, search bar with real-time filtering and match highlighting in titles and tags
+- **Evidence upload removed from dashboard** — removed drag-and-drop uploader, file list, and all evidence state management (~550 lines). Tasks now show a simple "Mark Complete" button. Evidence upload will be re-added as a paid feature.
 - Forgot password flow (`/reset-password` page + Playwright tests)
 - OAuth social login buttons (Google, Microsoft) wired into login form
 - Playwright E2E test infrastructure
@@ -269,7 +272,7 @@ SENTRY_AUTH_TOKEN=
 - **Added root-level `.env.example`** — documents all required environment variables for Supabase CLI and edge functions
 - **Fixed `supabase_schema.sql` path** — corrected in AGENTS.md file tree (was incorrectly listed inside `supabase/` directory)
 - **Added `Hide Billing` feature** — admin Billing tab has a toggle to hide billing from users, end active trials, and mark new signups as sponsored
-- **CSRF protection** — `lib/csrf.ts` with token generation/validation; applied to `complete-signup` route with cookie rotation
+- **CSRF protection** -- lib/csrf.ts with double-submit cookie pattern; csrfFetch() wrapper applied to all mutation endpoints (10 client components); cookie rotation on success
 - **Rate limiting** — `lib/rate-limit.ts` with IP-based request throttling; applied to `complete-signup` route
 - **Body size limits** — `lib/body-limit.ts` with configurable request body size enforcement; applied to `complete-signup` route
 - **Sentry client** — `lib/sentry.ts` with client-side and server-side initialization (needs `NEXT_PUBLIC_SENTRY_DSN` to activate)
@@ -283,8 +286,8 @@ SENTRY_AUTH_TOKEN=
 6. Task seeding requires rules to be synced first — if `sync-compliance-rules` hasn't run, zero tasks are seeded
 7. **No RLS policies** on core tables — all queries use the service_role key; Supabase anon key is underutilised
 8. **Onboarding page is a scaffold** — `/onboarding` shows placeholders with no form logic
-9. **No evidence upload** — tasks have `evidence_required` flag but upload UI and API are not implemented
-10. **CSRF protection is partial** — only applied to `complete-signup` route; other mutation endpoints (settings, admin, billing) still unprotected
+9. **Evidence upload intentionally removed** — upload UI was removed (will be re-added as a paid feature); API routes exist but are not wired to the frontend
+10. ~~CSRF protection is partial — only applied to `complete-signup` route~~ ✅ Fixed — `csrfFetch()` wrapper now applied to all mutation endpoints (10 client components)
 11. **Rate limiting is partial** — only applied to `complete-signup` route; other API endpoints lack rate limiting
 12. **Body size limits are partial** — only applied to `complete-signup` route; other mutation endpoints lack body limits
 13. **Sentry is wired but untested** — `lib/sentry.ts` exists but `NEXT_PUBLIC_SENTRY_DSN` is not configured

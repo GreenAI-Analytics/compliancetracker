@@ -49,6 +49,11 @@ export function LoginForm() {
     const requestedMode = searchParams.get("mode");
     if (requestedMode === "signup" || requestedMode === "login") {
       setMode(requestedMode);
+
+      // Bootstrap CSRF token so subsequent complete-signup POST includes the header
+      if (requestedMode === "signup") {
+        fetch("/api/csrf-token").catch(() => {});
+      }
     }
   }, [searchParams]);
 
@@ -73,6 +78,10 @@ export function LoginForm() {
 
       if (user?.email) {
         setEmail(user.email);
+
+        // Bootstrap the CSRF token cookie so the follow-up
+        // complete-signup POST includes the X-CSRF-Token header.
+        fetch("/api/csrf-token").catch(() => {});
         setOauthSignupMode(true);
         setMode("signup");
       }
@@ -225,7 +234,10 @@ export function LoginForm() {
 
           const persistRes = await fetch("/api/auth/complete-signup", {
             method: "POST",
-            headers: { "Content-Type": "application/json", "X-CSRF-Token": getCsrfToken() ?? "" },
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-Token": getCsrfToken() ?? "",
+            },
             body: JSON.stringify({
               authUserId: oauthUser.id,
               email: oauthUser.email,
@@ -285,7 +297,10 @@ export function LoginForm() {
         if (authUserId) {
           const persistRes = await fetch("/api/auth/complete-signup", {
             method: "POST",
-            headers: { "Content-Type": "application/json", "X-CSRF-Token": getCsrfToken() ?? "" },
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-Token": getCsrfToken() ?? "",
+            },
             body: JSON.stringify({
               authUserId,
               email,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { csrfFetch } from "@/lib/csrf";
 
 type CategoryToggleItem = {
   ref: string;
@@ -27,7 +28,7 @@ export function SettingsCategoryToggles({
     );
 
     try {
-      const res = await fetch("/api/settings/category-visibility", {
+      const res = await csrfFetch("/api/settings/category-visibility", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ categoryRef: ref, enabled }),

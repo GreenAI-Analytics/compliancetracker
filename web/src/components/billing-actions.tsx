@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { csrfFetch } from "@/lib/csrf";
 
 type Props = {
   isSponsored: boolean;
@@ -20,7 +21,7 @@ export function BillingActions({ isSponsored, hasStripeCustomer, subscriptionSta
 
     try {
       const endpoint = action === "checkout" ? "/api/billing/checkout" : "/api/billing/portal";
-      const res = await fetch(endpoint, {
+      const res = await csrfFetch(endpoint, {
         method: "POST",
       });
 

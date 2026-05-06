@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useReducer, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { csrfFetch } from "@/lib/csrf";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { csrfFetch } from "@/lib/csrf";
 import { useRouter } from "next/navigation";
 
 const RECURRING_INTERVALS = [
@@ -39,7 +40,7 @@ export function CustomTaskManager({
     setIsSaving(true);
 
     try {
-      const res = await fetch("/api/settings/custom-tasks", {
+      const res = await csrfFetch("/api/settings/custom-tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

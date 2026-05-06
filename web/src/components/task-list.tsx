@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { csrfFetch } from "@/lib/csrf";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -521,7 +522,7 @@ export function TaskList({
   async function fetchExistingEvidence(instanceId: string) {
     setEvidenceState(instanceId, { loadingEvidence: true });
     try {
-      const res = await fetch(
+      const res = await csrfFetch(
         `/api/task-instances/evidence?taskInstanceId=${encodeURIComponent(instanceId)}`,
       );
       if (!res.ok) {
@@ -542,7 +543,7 @@ export function TaskList({
     setLoadingId(instanceId);
     setActionError(null);
     try {
-      const res = await fetch("/api/task-instances/complete", {
+      const res = await csrfFetch("/api/task-instances/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ instanceId }),
@@ -596,7 +597,7 @@ export function TaskList({
         setEvidenceState(instanceId, { uploadProgress: simulatedProgress });
       }, 300);
 
-      const res = await fetch("/api/task-instances/complete-with-evidence", {
+      const res = await csrfFetch("/api/task-instances/complete-with-evidence", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

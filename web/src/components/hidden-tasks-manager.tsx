@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { csrfFetch } from "@/lib/csrf";
 import { useRouter } from "next/navigation";
 
 type HiddenTaskItem = {
@@ -41,7 +42,7 @@ export function HiddenTasksManager({
     setLoadingRef(taskRef);
     setError(null);
     try {
-      const res = await fetch("/api/settings/hidden-tasks", {
+      const res = await csrfFetch("/api/settings/hidden-tasks", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ taskRef }),

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { csrfFetch } from "@/lib/csrf";
 import { useRouter } from "next/navigation";
 
 type PaymentInformation = {
@@ -46,7 +47,7 @@ export function PaymentInformationForm({
     setError(null);
 
     try {
-      const res = await fetch("/api/settings/payment-information", {
+      const res = await csrfFetch("/api/settings/payment-information", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

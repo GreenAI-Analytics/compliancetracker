@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { getCsrfToken } from "@/lib/csrf";
 
 type NaceSectionOption = {
   code: string;
@@ -224,7 +225,7 @@ export function LoginForm() {
 
           const persistRes = await fetch("/api/auth/complete-signup", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", "X-CSRF-Token": getCsrfToken() ?? "" },
             body: JSON.stringify({
               authUserId: oauthUser.id,
               email: oauthUser.email,
@@ -284,7 +285,7 @@ export function LoginForm() {
         if (authUserId) {
           const persistRes = await fetch("/api/auth/complete-signup", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", "X-CSRF-Token": getCsrfToken() ?? "" },
             body: JSON.stringify({
               authUserId,
               email,

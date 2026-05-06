@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { csrfFetch } from "@/lib/csrf";
 
 type Props = {
   initialEnabled: boolean;
@@ -22,7 +23,7 @@ export function TaskReminderSettings({ initialEnabled, initialDaysBefore }: Prop
     setSavedMessage(null);
 
     try {
-      const res = await fetch("/api/settings/task-reminders", {
+      const res = await csrfFetch("/api/settings/task-reminders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enabled, daysBefore }),
